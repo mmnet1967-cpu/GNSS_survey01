@@ -67,7 +67,8 @@ h3{font-size:17px;margin:20px 0 8px}
 .card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;margin-bottom:12px}
 .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .row > *{min-width:0}
-label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
+label.f{display:flex;flex-direction:column;justify-content:flex-end;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
+.row:has(> label.f){align-items:stretch}
 label.f > input,label.f > select{font-size:16px;color:var(--ink)}
 input[type=text],input[type=number],input[type=url],select,textarea{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:9px 10px;width:100%}
 textarea{display:block;max-width:100%;min-height:90px;resize:vertical;font-size:14px}
@@ -136,6 +137,7 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
 .live-g span{font-size:14px;color:var(--muted)} .live-g b{font-size:30px;letter-spacing:-.01em}
 .live-f{margin:6px 0 0;font-size:13px;color:var(--muted)}
 .live.stale b{color:var(--muted)}
+body.geo .nmeaOnly{display:none!important}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 @media (min-width:700px){ .read{grid-template-columns:repeat(4,1fr)} }
 </style>
@@ -148,9 +150,9 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
     <div class="sline">
       <span>水平σ <b id="stH">—</b></span>
       <span>高さσ <b id="stV">—</b></span>
-      <span>衛星 <b id="stSat">—</b></span>
-      <span>HDOP <b id="stHdop">—</b></span>
-      <span>齢 <b id="stAge">—</b></span>
+      <span class="nmeaOnly">衛星 <b id="stSat">—</b></span>
+      <span class="nmeaOnly">HDOP <b id="stHdop">—</b></span>
+      <span class="nmeaOnly">齢 <b id="stAge">—</b></span>
     </div>
     <div class="meter" title="CLAS精度メーター"><i id="stMeter"></i></div>
   </div>
@@ -195,9 +197,9 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
       <div><span>高さσ（受信機の推定）</span><b id="aGV">—</b></div>
       <div><span>水平ばらつき（直近10秒）</span><b id="aRH">—</b></div>
       <div><span>高さばらつき（直近10秒）</span><b id="aRV">—</b></div>
-      <div><span>使用衛星数</span><b id="aSat">—</b></div>
-      <div><span>HDOP ／ PDOP</span><b id="aDop">—</b></div>
-      <div><span>補正データ齢</span><b id="aAge">—</b></div>
+      <div class="nmeaOnly"><span>使用衛星数</span><b id="aSat">—</b></div>
+      <div class="nmeaOnly"><span>HDOP ／ PDOP</span><b id="aDop">—</b></div>
+      <div class="nmeaOnly"><span>補正データ齢</span><b id="aAge">—</b></div>
       <div><span>受信レート</span><b id="aHz">—</b></div>
       <div><span>緯度 ／ 経度</span><b id="aLL" style="font-size:15px">—</b></div>
       <div><span>X ／ Y ／ H</span><b id="aXY" style="font-size:15px">—</b></div>
@@ -227,7 +229,7 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
       <datalist id="dlPlanned"></datalist>
     </div>
     <div class="row" style="margin-top:8px">
-      <label class="f">エポック数（1秒1エポック）<input type="number" id="mN" min="1" max="600" step="1"></label>
+      <label class="f">エポック数（1秒1回）<input type="number" id="mN" min="1" max="600" step="1"></label>
       <label class="f">アンテナ高（m）<input type="number" id="mAnt" step="0.001"></label>
     </div>
     <label class="chk" style="margin-top:10px"><input type="checkbox" id="mFixOnly"> FIX解のエポックだけを平均に使う</label>
@@ -357,9 +359,25 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
     <div class="row">
       <label class="f">平面直角座標系<select id="zZone"></select></label>
       <label class="f">高さの種類
-        <select id="zH"><option value="gga">標高（受信した高さをそのまま）</option><option value="ellip">楕円体高</option></select></label>
+        <select id="zH"><option value="jp2024">標高（JPGEO2024で計算）</option><option value="raw">受信した高さのまま</option><option value="ellip">楕円体高</option></select></label>
     </div>
-    <p class="note">高さは受信した値をそのまま使います。Drogger GPS から受信する場合は、Drogger GPS 画面の標高と同じ値になっているか一度確認してください。CLASの測位結果は今期の座標なので、成果座標と合わせるには既知点補正を使ってください。</p>
+    <p class="note">標高 ＝ 楕円体高 − JPGEO2024のジオイド高 で計算します。Drogger GPS から受信する高さは楕円体高のため、JPGEO2024の読み込みが必要です。CLASの測位結果は今期の座標なので、成果座標と合わせるには既知点補正を使ってください。</p>
+  </div>
+  <div class="card">
+    <b>ジオイド・モデル（ジオイド2024日本とその周辺）</b>
+    <dl class="mres" style="margin-top:8px">
+      <dt>JPGEO2024</dt><dd id="gm1">未読込</dd>
+      <dt>基準面補正</dt><dd id="gm2">未読込</dd>
+      <dt>現在地の値</dt><dd id="gmNow">—</dd>
+    </dl>
+    <div class="row" style="margin-top:10px">
+      <label class="btn" for="gf1">JPGEO2024 を読み込む</label>
+      <input type="file" id="gf1" hidden>
+      <label class="btn sub" for="gf2">Hrefconv2024 を読み込む</label>
+      <input type="file" id="gf2" hidden>
+    </div>
+    <p class="muted" id="gmBusy" hidden>読み込み中です。数秒かかります…</p>
+    <p class="note">国土地理院の基盤地図情報サイトからダウンロードしたISG形式（.isg）を読み込みます。JPGEO2024.isg と Hrefconv2024.isg（離島の基準面補正）を読み込むか、合成版の JPGEO2024+Hrefconv2024.isg を JPGEO2024 の欄に読み込んでください。一度読み込めば端末に保存され、オフラインでも使えます。</p>
   </div>
   <div class="card">
     <b>既知点補正（平行移動）</b>
@@ -656,14 +674,14 @@ const NMEA_PORT = 10110;
 const KEY = 'clas-survey-v1';
 const DEF = {
   sites: [], cur: null,
-  set: { zone: 9, hType: 'gga', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
+  set: { zone: 9, hType: 'jp2024', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
     circle: 1.0, tol: 0.02, fixAcc: 0.05, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
   stake: null
 };
 let D;
 try { D = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { D = null; }
 if (!D || !Array.isArray(D.sites)) D = JSON.parse(JSON.stringify(DEF));
-D.set = Object.assign({}, DEF.set, D.set || {}); if (D.set.hType !== 'ellip') D.set.hType = 'gga'; D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {});
+D.set = Object.assign({}, DEF.set, D.set || {}); if (!['jp2024', 'raw', 'ellip'].includes(D.set.hType)) D.set.hType = 'jp2024'; D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {});
 let saveTimer = null;
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} }, 150); }
 function site() { return D.sites.find(s => s.id === D.cur) || null; }
@@ -727,14 +745,64 @@ function feedText(txt) {
 function computeXYH(g) {
   const s = D.set;
   const p = GEO.toXY(g.lat, g.lon, s.zone);
-  // 標高は受信機(Drogger GPSのジオイド設定)が出力するGGAの高度をそのまま使う
-  const N = g.sep != null ? g.sep : null;               // ジオイド高（GGAのジオイド高欄）
-  const eh = g.alt == null ? null : g.alt + (N || 0);  // 楕円体高
-  let h = g.alt == null ? null : (s.hType === 'ellip' ? eh : g.alt);
+  // 楕円体高：Drogger GPS経由（端末の位置情報）は高さが楕円体高、NMEAはGGAの高度＋ジオイド高
+  const eh = g.alt == null ? null : (g.est ? g.alt : g.alt + (g.sep || 0));
+  const N = geoidN(g.lat, g.lon);
+  let h = null;
+  if (s.hType === 'ellip') h = eh;
+  else if (s.hType === 'raw') h = g.alt;
+  else if (eh != null && N != null) h = eh - N;
   if (h != null) h -= (+s.ant || 0);
   return { rX: p.X, rY: p.Y, rH: h, X: p.X + s.corr.dX, Y: p.Y + s.corr.dY, H: h == null ? null : h + s.corr.dH, eh, N };
 }
-function hLabel(t) { return (t || D.set.hType) === 'ellip' ? '楕円体高' : '標高'; }
+function hLabel(t) { t = t || D.set.hType; return t === 'ellip' ? '楕円体高' : t === 'raw' ? '受信した高さ' : '標高'; }
+
+/* ---------- ジオイド ---------- */
+const GM = { main: null, href: null };
+function geoidN(lat, lon) {
+  if (!GM.main) return null;
+  const n = GEOID.interp(GM.main, lat, lon); if (n == null) return null;
+  if (GM.href && !/hrefconv/i.test(GM.main.name)) { const r = GEOID.interp(GM.href, lat, lon); return n + (r || 0); }
+  return n;
+}
+function geoidName() {
+  if (!GM.main) return null;
+  return /hrefconv/i.test(GM.main.name) || !GM.href ? GM.main.name : GM.main.name + ' + ' + GM.href.name;
+}
+function idb() {
+  return new Promise((res, rej) => { const r = indexedDB.open('clas-geoid', 1); r.onupgradeneeded = () => r.result.createObjectStore('g'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+async function idbPut(k, v) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('g', 'readwrite'); t.objectStore('g').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('g'); const q = t.objectStore('g').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error); }); }
+async function loadGeoids() {
+  try { GM.main = await idbGet('main'); GM.href = await idbGet('href'); } catch (e) {}
+  renderGeoid(); recomputeLive();
+}
+function gmDesc(g) { if (!g) return '未読込'; return `${esc(g.name)}（北緯${g.latMin.toFixed(2)}〜${(g.latMin + g.dLat * (g.nrows - 1)).toFixed(2)}° ／ 東経${g.lonMin.toFixed(2)}〜${(g.lonMin + g.dLon * (g.ncols - 1)).toFixed(2)}°）`; }
+function renderGeoid() {
+  $('#gm1').innerHTML = gmDesc(GM.main);
+  $('#gm2').innerHTML = GM.main && /hrefconv/i.test(GM.main.name) ? '合成版に含まれています' : gmDesc(GM.href);
+  const g = L.gga;
+  $('#gmNow').textContent = g && g.lat != null ? (geoidN(g.lat, g.lon) != null ? geoidN(g.lat, g.lon).toFixed(4) + ' m' : 'モデルの範囲外か未読込') : '位置データなし';
+}
+async function importGeoid(file, slot) {
+  if (!file) return;
+  $('#gmBusy').hidden = false;
+  await new Promise(r => setTimeout(r, 50));
+  try {
+    const g = GEOID.parseISG(await file.text());
+    if (slot === 'href' && !/href/i.test(g.name + file.name) && !confirm('基準面補正のファイルではないようです。このまま読み込みますか？')) return;
+    if (slot === 'main' && /href/i.test(g.name) && !/jpgeo/i.test(g.name) && !confirm('基準面補正（Hrefconv2024）のファイルのようです。JPGEO2024の欄に読み込みますか？')) return;
+    GM[slot] = g;
+    try { await idbPut(slot, g); } catch (e) { toast('端末への保存に失敗しました。次回起動時に再度読み込みが必要です'); }
+    recomputeLive(); renderGeoid();
+    toast(`${g.name} を読み込みました（${(g.nrows * g.ncols).toLocaleString()}点）`);
+  } catch (e) { toast('読み込めませんでした：' + e.message); }
+  finally { $('#gmBusy').hidden = true; }
+}
+$('#gf1').onchange = e => { importGeoid(e.target.files[0], 'main'); e.target.value = ''; };
+$('#gf2').onchange = e => { importGeoid(e.target.files[0], 'href'); e.target.value = ''; };
+
 
 
 function onGGA(g) {
@@ -824,6 +892,7 @@ function updateStatus() {
   $('#aGeo').textContent = L.eh != null ? `${f3(L.eh)} ／ ${L.N != null ? L.N.toFixed(4) : '未読込'}` : '—';
   const frozen = L.ring.length >= 6 && L.ring.slice(-6).every(e => e.lat === L.ring[L.ring.length - 1].lat && e.lon === L.ring[L.ring.length - 1].lon);
   const warns = [];
+  if (D.set.hType === 'jp2024' && !GM.main) warns.push('JPGEO2024が未読込のため標高を計算できません。設定タブで読み込んでください。');
   if (frozen) warns.push('位置が数秒間まったく変化していません。受信機の出力設定を確認してください。');
   $('#rcvWarn').innerHTML = warns.map(w => `<div class="warn">${esc(w)}</div>`).join('');
   const lg = $('#log'); if (lg.parentElement.open) lg.textContent = logLines.slice(-40).join('\n');
@@ -832,25 +901,26 @@ function updateLive() {
   const box = document.querySelector('.live'); if (!box) return;
   const g = L.gga; const fresh = g && Date.now() - L.lastAt < 3000 && L.X != null;
   box.classList.toggle('stale', !fresh);
-  $('#lvHl').textContent = hLabel();
+  $('#lvHl').textContent = hLabel() + (D.set.hType === 'jp2024' ? '（JPGEO2024）' : '');
   if (!g || Date.now() - L.lastAt > 3000) { $('#lvBadge').className = 'badge q-none'; $('#lvBadge').textContent = '受信なし'; $('#lvSub').textContent = ''; $('#lvF').textContent = '受信タブで受信機に接続すると、ここに現在の座標が毎秒表示されます。'; return; }
   const q = NMEA.q(g.quality), a = accuracy();
   $('#lvBadge').className = 'badge ' + qClass(g.quality); $('#lvBadge').textContent = qLabel(g);
-  $('#lvSub').textContent = `水平 ${cm(a.h)} ／ 衛星 ${g.sats || '—'} ／ HDOP ${g.hdop != null ? g.hdop.toFixed(1) : '—'}`;
+  $('#lvSub').textContent = g.est ? `水平 ${cm(a.h)}` : `水平 ${cm(a.h)} ／ 衛星 ${g.sats || '—'} ／ HDOP ${g.hdop != null ? g.hdop.toFixed(1) : '—'}${L.gsa && L.gsa.pdop != null ? ' ／ PDOP ' + L.gsa.pdop.toFixed(1) : ''}`;
   $('#lvX').textContent = f3(L.X); $('#lvY').textContent = f3(L.Y);
-  $('#lvH').textContent = L.H != null ? f3(L.H) : '—';
+  $('#lvH').textContent = L.H != null ? f3(L.H) : (D.set.hType === 'jp2024' ? (GM.main ? (L.eh == null ? '高さなし' : 'モデル範囲外') : 'ジオイド未読込') : '—');
+  $('#lvH').style.fontSize = L.H != null ? '' : '18px';
   $('#lvH').style.fontSize = L.H != null ? '' : '18px';
   const c = D.set.corr, cOn = c.dX || c.dY || c.dH;
-  $('#lvF').textContent = `平面直角座標系 第${GEO.ROMAN[D.set.zone]}系` + (L.N != null ? ` ／ 受信機のジオイド高 ${L.N.toFixed(3)} m` : '') + ((+D.set.ant) ? ` ／ アンテナ高 ${(+D.set.ant).toFixed(3)} m 控除` : '') + (cOn ? ' ／ 既知点補正あり' : '');
+  $('#lvF').textContent = `平面直角座標系 第${GEO.ROMAN[D.set.zone]}系` + (L.eh != null ? ` ／ 楕円体高 ${L.eh.toFixed(3)} m` : '') + (L.N != null ? ` ／ ジオイド高 ${L.N.toFixed(3)} m` : '') + ((+D.set.ant) ? ` ／ アンテナ高 ${(+D.set.ant).toFixed(3)} m 控除` : '') + (cOn ? ' ／ 既知点補正あり' : '');
 }
 function fmtDur(ms) { const s = Math.floor(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)}時間${pad2(Math.floor(s % 3600 / 60))}分` : `${Math.floor(s / 60)}分${pad2(s % 60)}秒`; }
-setInterval(() => { updateStatus(); if (curTab === 'stake') drawStake(); }, 1000);
+setInterval(() => { updateStatus(); if (curTab === 'set') renderGeoid(); if (curTab === 'stake') drawStake(); }, 1000);
 
 /* ---------- 受信（受信機とBluetoothで直接接続：Web Serial / SPP） ---------- */
 let CONN = null; // { kind:'bt'|'tcp'|'demo' }
 const BT = { port: null, reader: null, writer: null, keep: false, session: 0, reconnecting: false, bytes: 0, bin: 0, lines: 0, gga: 0, bad: 0, last: '', hex: '', lastAt: 0, t0: 0, diag: null, ka: null };
 function setConn(c) {
-  CONN = c; setTimeout(updateWake, 0);
+  CONN = c; document.body.classList.toggle('geo', !!(c && c.kind === 'geo')); setTimeout(updateWake, 0);
   const on = !!(c && (c.kind === 'bt' || c.kind === 'geo'));
   const b = $('#bConn'), bb = $('#bBt');
   b.textContent = c && c.kind === 'geo' ? '受信を止める' : 'Drogger GPSから受信';
@@ -1015,7 +1085,7 @@ $('#bSim').onclick = () => {
       const d = Math.hypot(tx - st.X, ty - st.Y);
       if (d > 300) { st.X = tx - 9; st.Y = ty - 7; }
       else if (d > 0.012) { const step = Math.min(0.8, d * 0.28); st.X += (tx - st.X) / d * step; st.Y += (ty - st.Y) / d * step; }
-      if (tg.H != null) { st.Hm = tg.H - D.set.corr.dH + (+D.set.ant || 0) + 0.08 - (D.set.hType === 'ellip' ? sep : 0); }
+      if (tg.H != null) { { const ll = GEO.toLL(st.X, st.Y, z); const N = geoidN(ll.lat, ll.lon) || 0; st.Hm = tg.H - D.set.corr.dH + (+D.set.ant || 0) + 0.08 + (D.set.hType === 'jp2024' ? N - sep : D.set.hType === 'ellip' ? -sep : 0); } }
     }
     const nh = fix ? 0.008 : 0.12, nv = fix ? 0.015 : 0.25;
     const X = st.X + gauss() * nh, Y = st.Y + gauss() * nh, Hm = st.Hm + gauss() * nv;
@@ -1072,6 +1142,18 @@ function fillSites(sel) {
 
 /* ---------- 観測 ---------- */
 let MEAS = null, MRESULT = null;
+// 末尾の数字だけを1つ進める（T01→T02、01→02、1→2、T09→T10、No.5→No.6）。英字などはそのまま
+function incNo(no) {
+  const m = String(no).match(/^(.*?)(\d+)(\D*)$/);
+  if (!m) return '';
+  const n = String(parseInt(m[2], 10) + 1);
+  return m[1] + (m[2].length > n.length ? n.padStart(m[2].length, '0') : n) + m[3];
+}
+function nextNo(s, after) {
+  let n = incNo(after), guard = 0;
+  while (n && s.points.some(p => p.no === n && p.status === 'measured') && guard++ < 1000) n = incNo(n);
+  return n;
+}
 function nextPlanned(s, after) {
   const pl = s.points.filter(p => p.status === 'planned');
   if (!pl.length) return null;
@@ -1099,10 +1181,11 @@ $('#mStart').onclick = () => {
   const s = ensureSite();
   const no = $('#mNo').value.trim();
   if (!no) { toast('点番号を入力してください'); $('#mNo').focus(); return; }
-  if (!L.gga || Date.now() - L.lastAt > 3000) { toast('位置データを受信していません。受信タブで受信機に接続してください'); return; }
+  if (!L.gga || Date.now() - L.lastAt > 3000) { toast('位置データを受信していません。受信タブで受信を開始してください'); return; }
+  if (D.set.hType === 'jp2024' && L.N == null && !confirm('JPGEO2024が未読込（または範囲外）のため標高が記録されません。このまま観測しますか？')) return;
   const dup = s.points.find(p => p.no === no && p.status === 'measured');
   if (dup && !confirm(`「${no}」は観測済みです。上書きしますか？`)) return;
-  MEAS = { site: s.id, no, N: D.set.epochs, eps: [], rej: 0, t0: Date.now(), fixOnly: D.set.fixOnly, ant: +D.set.ant || 0, corr: { ...D.set.corr }, zone: D.set.zone, hType: D.set.hType, hModel: D.set.hType === 'ellip' ? '楕円体高' : (CONN && CONN.kind === 'geo' ? 'Drogger GPSの高さ' : '受信機出力'), src: CONN && CONN.kind === 'geo' ? 'Drogger GPS経由' : 'NMEA直接' };
+  MEAS = { site: s.id, no, N: D.set.epochs, eps: [], rej: 0, t0: Date.now(), fixOnly: D.set.fixOnly, ant: +D.set.ant || 0, corr: { ...D.set.corr }, zone: D.set.zone, hType: D.set.hType, hModel: D.set.hType === 'ellip' ? '楕円体高' : D.set.hType === 'raw' ? '受信した高さ' : (geoidName() || ''), src: CONN && CONN.kind === 'geo' ? 'Drogger GPS経由' : 'NMEA直接' };
   MRESULT = null;
   $('#mDone').hidden = true; $('#mRun').hidden = false; $('#mStart').disabled = true;
   $('#mRunT').textContent = `「${no}」を観測中`;
@@ -1165,7 +1248,7 @@ $('#mSave').onclick = () => {
   save();
   toast(`「${rec.no}」を保存しました`);
   $('#mDone').hidden = true;
-  $('#mNo').value = nextPlanned(s, rec.no) || '';
+  $('#mNo').value = nextNo(s, rec.no) || nextPlanned(s, rec.no) || '';
   MRESULT = null;
   renderMeas();
 };
@@ -1509,6 +1592,7 @@ function renderSet() {
   $('#zZone').innerHTML = Array.from({ length: 19 }, (_, i) => `<option value="${i + 1}">第${GEO.ROMAN[i + 1]}系</option>`).join('');
   $('#zZone').value = D.set.zone; $('#zH').value = D.set.hType;
   $('#kX').value = D.set.corr.dX; $('#kY').value = D.set.corr.dY; $('#kH').value = D.set.corr.dH;
+  renderGeoid();
   $('#zCircle').value = D.set.circle; $('#zFixAcc').value = D.set.fixAcc; $('#zTol').value = D.set.tol; $('#zDecl').value = D.set.decl;
   $('#zWake').checked = D.set.wake; $('#zVib').checked = D.set.vib; $('#zTheme').value = D.set.theme || '';
   const s = ensureSite();
@@ -1550,6 +1634,7 @@ document.addEventListener('visibilitychange', updateWake);
 function applySettingsUI() { applyTheme(); }
 applySettingsUI();
 ensureSite();
+loadGeoids();
 renderRcv();
 updateStatus();
 if (BR && BR.ready) { try { BR.ready(); } catch (e) {} }
