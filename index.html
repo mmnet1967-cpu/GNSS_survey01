@@ -171,9 +171,10 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
     <details style="margin-top:8px" id="setupDet">
       <summary>接続の前に</summary>
       <ol class="steps">
-        <li>Drogger GPS アプリで受信機をCLASに設定し、NMEA出力（<b>GGA・RMC・GSA</b>、出せれば<b>GST</b>）を有効にします。</li>
-        <li>設定が済んだら、Drogger GPS アプリの「停止」で受信機との接続を切ります（Bluetoothは同時に1台しかつながりません）。</li>
-        <li>受信機を Android の Bluetooth 設定でペアリングしておきます。</li>
+        <li>Drogger GPS アプリの設定（歯車）で、［GNSS（衛星測位システム）］の<b>CLASをON</b>、［RTK］の<b>移動局をOFF</b>にします。</li>
+        <li>［メッセージ出力］の［メッセージ選択］（または［Bluetooth Message type］）で <b>GGA・RMC・GSA</b> にチェックを入れ、［計測・更新レート］を <b>1Hz</b> にします。</li>
+        <li>［Start］で受信機につなぎ、右上の「…」→［レシーバー］→［起動設定］で、GNSS Settings と DMP Settings の両方を<b>［現在の設定で起動］</b>にして OK を押します。</li>
+        <li>［Stop］で Drogger GPS アプリを切断します（Bluetoothは同時に1台しかつながりません）。</li>
         <li>「受信機に接続」を押し、一覧から受信機を選びます（Android の Chrome 138 以降が必要です）。</li>
       </ol>
     </details>
