@@ -164,18 +164,25 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
   <div class="card">
     <div class="row" style="justify-content:space-between;align-items:center">
       <b id="rcvState">未接続</b>
-      <button class="btn" id="bConn">受信機に接続</button>
+      <button class="btn" id="bConn">Drogger GPSから受信</button>
     </div>
-    <div id="btDiag" class="note" hidden></div>
+    <p class="note">Drogger GPS アプリで受信機と接続しFIXさせたまま、このボタンを押してください。このアプリは受信機にもDrogger GPSにも何も送らず、Drogger GPSが測位した位置を読み取るだけです。</p>
     <div id="rcvWarn"></div>
     <details style="margin-top:8px" id="setupDet">
-      <summary>接続の前に</summary>
+      <summary>初めて使うときの設定</summary>
       <ol class="steps">
-        <li><b>初回だけ：</b>Drogger GPS アプリの設定（歯車）で、使う測位（CLAS RTK）を選び、［メッセージ出力］の［メッセージ選択］（または［Bluetooth Message type］）で <b>GGA・RMC・GSA</b> にチェック、［計測・更新レート］を <b>1Hz</b> にします。</li>
-        <li><b>受信機の電源を入れるたびに：</b>Drogger GPS で［Start］を押して設定を受信機に送り、緑のマークが付いたら［Stop］を押します。受信機は電源を切るまでこの設定を保ちます。受信機の電源を切った場合は、もう一度この操作をしてください。</li>
-        <li>このアプリで「受信機に接続」を押し、一覧から受信機を選びます（Android の Chrome 138 以降が必要です）。</li>
-        <li>Bluetooth は同時に1台しかつながりません。このアプリの使用中は Drogger GPS で［Start］を押さないでください。</li>
+        <li>Android の［設定］→［システム］→［開発者向けオプション］→［仮の現在地情報アプリを選択］で <b>Drogger GPS</b> を選びます（Drogger GPS を使い始めたときに設定済みなら不要です）。</li>
+        <li>Drogger GPS で［Start］を押し、CLAS RTK で FIX させます。Drogger GPS は動かしたままにします。</li>
+        <li>このアプリで「Drogger GPSから受信」を押し、位置情報の利用を「許可」します。</li>
+        <li>受信タブの高さが Drogger GPS 画面の標高と同じか、一度確認してください。</li>
       </ol>
+      <p class="note">この方式では FIX／FLOAT の区別、衛星数、HDOP は届きません。Drogger GPS が渡す推定精度が設定タブの「FIXとみなす精度」（既定 5cm）以内なら FIX相当として扱います。</p>
+    </details>
+    <details style="margin-top:8px">
+      <summary>受信機に直接つなぐ（Drogger GPS を止めて使う場合）</summary>
+      <div class="row" style="margin-top:8px"><button class="btn sub" id="bBt">受信機に直接接続</button></div>
+      <p class="note">Drogger GPS で［Stop］を押してから使います。受信機からNMEAを受け取るだけで、設定の送信や自動再接続は行いません。Drogger GPS 経由で補正を受けている場合はFIXしません。</p>
+      <div id="btDiag" class="note" hidden></div>
     </details>
   </div>
 
@@ -184,8 +191,8 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
     <div class="acc">
       <div><span>測位状態</span><b id="aQ">—</b></div>
       <div><span>FIX継続時間</span><b id="aFixT">—</b></div>
-      <div><span>水平σ（受信機GST）</span><b id="aGH">—</b></div>
-      <div><span>高さσ（受信機GST）</span><b id="aGV">—</b></div>
+      <div><span>水平σ（受信機の推定）</span><b id="aGH">—</b></div>
+      <div><span>高さσ（受信機の推定）</span><b id="aGV">—</b></div>
       <div><span>水平ばらつき（直近10秒）</span><b id="aRH">—</b></div>
       <div><span>高さばらつき（直近10秒）</span><b id="aRV">—</b></div>
       <div><span>使用衛星数</span><b id="aSat">—</b></div>
@@ -196,7 +203,7 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
       <div><span>X ／ Y ／ H</span><b id="aXY" style="font-size:15px">—</b></div>
       <div><span>楕円体高 ／ ジオイド高</span><b id="aGeo" style="font-size:15px">—</b></div>
     </div>
-    <p class="note">ばらつきは直近10エポックの標準偏差です。受信機σは$GSTが届いている場合だけ表示し、判定にも使います（Drogger GPSの標準出力にGSTはないため、通常はばらつきで判定します）。判定 A：2cm以下 ／ B：5cm以下 ／ C：10cm以下 ／ D：それ以上（FIX以外はC以下）。</p>
+    <p class="note">ばらつきは直近10エポックの標準偏差です。受信機σは、Drogger GPSから受信しているときはDrogger GPSが渡す推定精度、受信機に直接つないでいるときは$GSTが届いた場合の値です。判定 A：2cm以下 ／ B：5cm以下 ／ C：10cm以下 ／ D：それ以上（FIX以外はC以下）。</p>
     <details><summary>NMEAログ</summary><pre class="log" id="log"></pre></details>
   </div>
 </section>
@@ -350,9 +357,9 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
     <div class="row">
       <label class="f">平面直角座標系<select id="zZone"></select></label>
       <label class="f">高さの種類
-        <select id="zH"><option value="gga">標高（受信機の出力）</option><option value="ellip">楕円体高</option></select></label>
+        <select id="zH"><option value="gga">標高（受信した高さをそのまま）</option><option value="ellip">楕円体高</option></select></label>
     </div>
-    <p class="note">標高は受信機が出力するGGAの高度をそのまま使います。ジオイド・モデルはDrogger GPSアプリ側の設定が反映されます。観測画面に表示される「受信機のジオイド高」で、設定したモデルの値になっているか確認できます。CLASの測位結果は今期の座標なので、成果座標と合わせるには既知点補正を使ってください。</p>
+    <p class="note">高さは受信した値をそのまま使います。Drogger GPS から受信する場合は、Drogger GPS 画面の標高と同じ値になっているか一度確認してください。CLASの測位結果は今期の座標なので、成果座標と合わせるには既知点補正を使ってください。</p>
   </div>
   <div class="card">
     <b>既知点補正（平行移動）</b>
@@ -373,6 +380,7 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
   <div class="card">
     <div class="row">
       <label class="f">円表示に切り替える距離（m）<input type="number" id="zCircle" step="0.1" min="0.2"></label>
+      <label class="f">FIXとみなす精度（m、Drogger GPSから受信時）<input type="number" id="zFixAcc" step="0.005" min="0.005"></label>
       <label class="f">杭位置OKの許容値（m）<input type="number" id="zTol" step="0.005" min="0.005"></label>
       <label class="f">磁気偏角（度、西偏は−）<input type="number" id="zDecl" step="0.1"></label>
     </div>
@@ -649,7 +657,7 @@ const KEY = 'clas-survey-v1';
 const DEF = {
   sites: [], cur: null,
   set: { zone: 9, hType: 'gga', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
-    circle: 1.0, tol: 0.02, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
+    circle: 1.0, tol: 0.02, fixAcc: 0.05, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
   stake: null
 };
 let D;
@@ -742,7 +750,7 @@ function onGGA(g) {
   Object.assign(L, c);
   const gstOk = L.gst && now - L.gstAt < 2500;
   const ep = { t: now, time: g.time, lat: g.lat, lon: g.lon, alt: g.alt, sep: g.sep, q: g.quality, sats: g.sats, hdop: g.hdop, age: g.age,
-    gH: gstOk && L.gst.sdLat != null ? Math.hypot(L.gst.sdLat, L.gst.sdLon) : null, gV: gstOk ? L.gst.sdAlt : null, ...c };
+    gH: g.est ? g.acc : gstOk && L.gst.sdLat != null ? Math.hypot(L.gst.sdLat, L.gst.sdLon) : null, gV: g.est ? g.vacc : gstOk ? L.gst.sdAlt : null, ...c };
   L.ring.push(ep); if (L.ring.length > 10) L.ring.shift();
   L.ep = ep;
   updateStatus(); updateLive();
@@ -761,8 +769,8 @@ function accuracy() {
   const g = L.gga; if (!g) return null;
   const now = Date.now();
   const gstOk = L.gst && now - L.gstAt < 2500 && L.gst.sdLat != null;
-  const gH = gstOk ? Math.hypot(L.gst.sdLat, L.gst.sdLon) : null;
-  const gV = gstOk ? L.gst.sdAlt : null;
+  const gH = g.est ? g.acc : gstOk ? Math.hypot(L.gst.sdLat, L.gst.sdLon) : null;
+  const gV = g.est ? g.vacc : gstOk ? L.gst.sdAlt : null;
   const rs = ringSd();
   const h = gH != null ? gH : rs.h; // GSTがあればGST、無ければ直近のばらつき
   let grade = 'D';
@@ -773,6 +781,11 @@ function accuracy() {
 }
 
 function qClass(q) { return 'q-' + NMEA.q(q).key; }
+function qLabel(g) {
+  if (!g.est) return NMEA.q(g.quality).label;
+  const acc = g.acc != null ? `±${(g.acc * 100).toFixed(1)}cm` : '';
+  return g.quality === 4 ? `FIX相当 ${acc}` : g.quality === 5 ? `FLOAT相当 ${acc}` : g.quality === 0 ? '測位なし' : `精度不足 ${acc}`;
+}
 function updateStatus() {
   const g = L.gga, b = $('#stBadge');
   const stale = !g || Date.now() - L.lastAt > 3000;
@@ -785,7 +798,7 @@ function updateStatus() {
     return;
   }
   const q = NMEA.q(g.quality), a = accuracy();
-  b.className = 'badge ' + qClass(g.quality); b.textContent = q.label;
+  b.className = 'badge ' + qClass(g.quality); b.textContent = qLabel(g);
   $('#stH').textContent = cm(a.h); $('#stV').textContent = cm(a.gV != null ? a.gV : a.rV);
   $('#stSat').textContent = g.sats || '—'; $('#stHdop').textContent = g.hdop != null ? g.hdop.toFixed(1) : '—';
   $('#stAge').textContent = g.age != null ? g.age.toFixed(0) + 's' : '—';
@@ -796,11 +809,11 @@ function updateStatus() {
   const gt = { A: '杭打ち・観測に使える精度です', B: 'ほぼ良好。重要点は観測時間を延ばしてください', C: '精度不足。FIXと衛星の受信状況を確認してください', D: '観測には使えません', '—': '測位できていません' };
   $('#gGrade').textContent = a.grade; $('#gGrade').className = 'g ' + (a.grade === 'A' ? 'ok' : '');
   $('#gText').textContent = gt[a.grade];
-  $('#aQ').textContent = q.label; $('#aQ').className = qClass(g.quality).replace('q-', 'q-') + '';
+  $('#aQ').textContent = qLabel(g); $('#aQ').className = qClass(g.quality).replace('q-', 'q-') + '';
   $('#aQ').style.background = 'none';
   $('#aFixT').textContent = L.fixSince ? fmtDur(Date.now() - L.fixSince) : '—';
-  $('#aGH').textContent = a.gH != null ? cm(a.gH) : 'GST未出力';
-  $('#aGV').textContent = a.gV != null ? cm(a.gV) : 'GST未出力';
+  $('#aGH').textContent = a.gH != null ? cm(a.gH) : '—';
+  $('#aGV').textContent = a.gV != null ? cm(a.gV) : '—';
   $('#aRH').textContent = cm(a.rH); $('#aRV').textContent = cm(a.rV);
   $('#aSat').textContent = g.sats ?? '—';
   $('#aDop').textContent = (g.hdop != null ? g.hdop.toFixed(1) : '—') + ' ／ ' + (L.gsa && L.gsa.pdop != null ? L.gsa.pdop.toFixed(1) : '—');
@@ -822,7 +835,7 @@ function updateLive() {
   $('#lvHl').textContent = hLabel();
   if (!g || Date.now() - L.lastAt > 3000) { $('#lvBadge').className = 'badge q-none'; $('#lvBadge').textContent = '受信なし'; $('#lvSub').textContent = ''; $('#lvF').textContent = '受信タブで受信機に接続すると、ここに現在の座標が毎秒表示されます。'; return; }
   const q = NMEA.q(g.quality), a = accuracy();
-  $('#lvBadge').className = 'badge ' + qClass(g.quality); $('#lvBadge').textContent = q.label;
+  $('#lvBadge').className = 'badge ' + qClass(g.quality); $('#lvBadge').textContent = qLabel(g);
   $('#lvSub').textContent = `水平 ${cm(a.h)} ／ 衛星 ${g.sats || '—'} ／ HDOP ${g.hdop != null ? g.hdop.toFixed(1) : '—'}`;
   $('#lvX').textContent = f3(L.X); $('#lvY').textContent = f3(L.Y);
   $('#lvH').textContent = L.H != null ? f3(L.H) : '—';
@@ -838,11 +851,14 @@ let CONN = null; // { kind:'bt'|'tcp'|'demo' }
 const BT = { port: null, reader: null, writer: null, keep: false, session: 0, reconnecting: false, bytes: 0, bin: 0, lines: 0, gga: 0, bad: 0, last: '', hex: '', lastAt: 0, t0: 0, diag: null, ka: null };
 function setConn(c) {
   CONN = c; setTimeout(updateWake, 0);
-  const b = $('#bConn');
-  b.textContent = c && c.kind === 'bt' ? '切断' : '受信機に接続';
-  b.classList.toggle('sub', !!(c && c.kind === 'bt'));
-  b.disabled = !!(c && c.kind === 'demo');
-  $('#rcvState').textContent = !c ? '未接続' : c.kind === 'demo' ? 'デモ受信中（模擬データ）' : c.kind === 'tcp' ? 'Drogger GPSと接続中' : '受信機と接続中';
+  const on = !!(c && (c.kind === 'bt' || c.kind === 'geo'));
+  const b = $('#bConn'), bb = $('#bBt');
+  b.textContent = c && c.kind === 'geo' ? '受信を止める' : 'Drogger GPSから受信';
+  b.classList.toggle('sub', !!(c && c.kind === 'geo'));
+  b.disabled = !!(c && (c.kind === 'demo' || c.kind === 'bt'));
+  bb.textContent = c && c.kind === 'bt' ? '切断' : '受信機に直接接続';
+  bb.disabled = !!(c && (c.kind === 'demo' || c.kind === 'geo'));
+  $('#rcvState').textContent = !c ? '未接続' : c.kind === 'demo' ? 'デモ受信中（模擬データ）' : c.kind === 'geo' ? 'Drogger GPSから受信中' : c.kind === 'tcp' ? 'Drogger GPSと接続中' : '受信機に直接接続中';
   updateStatus();
 }
 function renderRcv() { $('#setupDet').open = !CONN && !L.gga; }
@@ -865,8 +881,6 @@ async function openPort(port, tries) {
 }
 function startReading() {
   const port = BT.port, my = ++BT.session;
-  port.setSignals({ dataTerminalReady: true, requestToSend: true }).catch(() => {});
-  try { BT.writer = port.writable ? port.writable.getWriter() : null; } catch (e) { BT.writer = null; }
   BT.reader = port.readable.getReader();
   const reader = BT.reader, dec = new TextDecoder('latin1');
   BT.lastAt = Date.now();
@@ -882,7 +896,7 @@ function startReading() {
       }
     } catch (e) { /* 下で再接続 */ }
     finally { try { reader.releaseLock(); } catch (e) {} }
-    if (BT.keep && my === BT.session) reconnect();
+    if (BT.keep && my === BT.session) { toast('受信機との接続が切れました'); stopBT(); }
   })();
 }
 async function closePortQuiet() {
@@ -892,27 +906,6 @@ async function closePortQuiet() {
   BT.writer = null; BT.reader = null;
   try { await BT.port?.close(); } catch (e) {}
 }
-async function reconnect() {
-  if (BT.reconnecting || !BT.keep || !BT.port) return;
-  BT.reconnecting = true;
-  $('#rcvState').textContent = '受信が途切れたため再接続しています';
-  await closePortQuiet();
-  for (let i = 1; i <= 10 && BT.keep; i++) {
-    try {
-      await BT.port.open(PORT_OPT);
-      startReading();
-      BT.reconnecting = false;
-      setConn({ kind: 'bt' });
-      toast('受信機に再接続しました');
-      return;
-    } catch (e) {
-      $('#rcvState').textContent = `再接続しています（${i}回目）`;
-      await sleep(1500);
-    }
-  }
-  BT.reconnecting = false;
-  if (BT.keep) { toast('受信機に再接続できませんでした。受信機の電源と距離を確認して、もう一度「受信機に接続」を押してください'); stopBT(); }
-}
 async function startBT() {
   if (!('serial' in navigator)) { toast('このChromeは受信機との直接接続に対応していません。AndroidのChromeを最新版（138以降）に更新してください'); return false; }
   let port;
@@ -921,7 +914,7 @@ async function startBT() {
   BT.keep = true; BT.port = port;
   const b = $('#bConn'); b.disabled = true;
   $('#rcvState').textContent = '接続しています';
-  try { await openPort(port, 5); }
+  try { await openPort(port, 1); }
   catch (e) {
     BT.keep = false; BT.port = null; b.disabled = false;
     toast('接続できませんでした：' + e.message + '（Drogger GPSアプリで［Stop］を押してから、もう一度お試しください）');
@@ -932,8 +925,6 @@ async function startBT() {
   Object.assign(BT, { bytes: 0, bin: 0, lines: 0, gga: 0, bad: 0, last: '', hex: '', t0: Date.now() });
   startReading();
   clearInterval(BT.diag); BT.diag = setInterval(updDiag, 1000); $('#btDiag').hidden = false; updDiag();
-  // 無通信でBluetoothが休止する端末があるため、5秒ごとに改行だけを送る
-  clearInterval(BT.ka); BT.ka = setInterval(() => { if (BT.writer && !BT.reconnecting) BT.writer.write(new Uint8Array([13, 10])).catch(() => {}); }, 5000);
   return true;
 }
 async function stopBT() {
@@ -943,7 +934,6 @@ async function stopBT() {
   if (CONN && CONN.kind === 'bt') setConn(null);
 }
 function updDiag() {
-  if (BT.keep && !BT.reconnecting && BT.lastAt && Date.now() - BT.lastAt > 6000) reconnect();
   const el = $('#btDiag'), sec = (Date.now() - BT.t0) / 1000, age = BT.lastAt ? (Date.now() - BT.lastAt) / 1000 : null;
   let msg, warn = true;
   if (!BT.bytes) msg = sec < 5 ? '受信機からのデータを待っています' : 'Bluetoothはつながりましたが、受信機からデータが届いていません。受信機の電源とNMEA出力の設定を確認してください。';
@@ -954,16 +944,43 @@ function updDiag() {
   if (sec < 5 && !BT.bytes) warn = false;
   el.innerHTML = `<b style="color:var(--${warn ? 'float' : 'fix'})">${esc(msg)}</b><br>受信 ${BT.bytes.toLocaleString()} バイト ／ NMEA ${BT.lines.toLocaleString()} 行 ／ 位置 ${BT.gga.toLocaleString()} 回 ／ 破損 ${BT.bad}<br><span style="word-break:break-all">${esc(BT.last || (BT.hex ? '先頭データ：' + BT.hex.trim() : '—'))}</span>`;
 }
-$('#bConn').onclick = async () => {
+$('#bBt').onclick = async () => {
   if (CONN && CONN.kind === 'bt') { await stopBT(); return; }
   L.lastTime = '';
   if (await startBT()) { setConn({ kind: 'bt' }); renderRcv(); }
 };
 window.addEventListener('pagehide', () => { if (BT.port) stopBT(); });
-document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && BT.keep && Date.now() - BT.lastAt > 4000) reconnect(); });
 // Androidアプリ版（WebView）から呼ばれる場合の受け口
 window.__nmea = txt => { if (CONN && CONN.kind === 'demo') return; feedText(txt); };
 window.__bridge = state => { if (!(CONN && CONN.kind === 'demo') && !(CONN && CONN.kind === 'bt')) setConn(state === 'connected' ? { kind: 'tcp' } : null); };
+
+/* ---------- Drogger GPSから受信（Drogger GPSが置き換えた端末の位置情報を読むだけ） ---------- */
+const GEOW = { id: null, last: 0 };
+function startGeo() {
+  if (!('geolocation' in navigator)) { toast('この端末では位置情報を使えません'); return false; }
+  GEOW.id = navigator.geolocation.watchPosition(p => {
+    if (!CONN || CONN.kind !== 'geo') return;
+    const c = p.coords, d = new Date(p.timestamp);
+    const fixAcc = +D.set.fixAcc || 0.05;
+    const acc = c.accuracy;
+    const q = acc == null ? 1 : acc <= fixAcc ? 4 : acc <= 0.5 ? 5 : 1;
+    GEOW.last = Date.now();
+    onGGA({ type: 'GGA', est: true, time: pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + '.00',
+      lat: c.latitude, lon: c.longitude, quality: q, sats: null, hdop: null, alt: c.altitude, sep: null, age: null,
+      acc, vacc: c.altitudeAccuracy, speed: c.speed, course: c.heading });
+    if (c.heading != null && c.speed != null) L.rmc = { course: c.heading, speed: c.speed };
+  }, e => {
+    toast(e.code === 1 ? '位置情報が許可されていません。Chromeのサイト設定で位置情報を「許可」にしてください' : '位置情報を取得できません：' + e.message);
+    if (e.code === 1) stopGeo();
+  }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+  return true;
+}
+function stopGeo() { if (GEOW.id != null) navigator.geolocation.clearWatch(GEOW.id); GEOW.id = null; if (CONN && CONN.kind === 'geo') setConn(null); }
+$('#bConn').onclick = () => {
+  if (CONN && CONN.kind === 'geo') { stopGeo(); return; }
+  L.lastTime = '';
+  if (startGeo()) { setConn({ kind: 'geo' }); renderRcv(); }
+};
 
 /* ---------- QRコード ---------- */
 $('#bQr').onclick = () => {
@@ -984,7 +1001,7 @@ const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v)
 let simIv = null;
 $('#bSim').onclick = () => {
   if (simIv) return;
-  if (CONN && CONN.kind === 'bt') { toast('受信機と接続中はデモを開始できません'); return; }
+  if (CONN && (CONN.kind === 'bt' || CONN.kind === 'geo')) { toast('受信中はデモを開始できません'); return; }
   const z = D.set.zone;
   const base = GEO.toXY(35.6812, 139.7671, z);
   const sep = 39.2;
@@ -1085,7 +1102,7 @@ $('#mStart').onclick = () => {
   if (!L.gga || Date.now() - L.lastAt > 3000) { toast('位置データを受信していません。受信タブで受信機に接続してください'); return; }
   const dup = s.points.find(p => p.no === no && p.status === 'measured');
   if (dup && !confirm(`「${no}」は観測済みです。上書きしますか？`)) return;
-  MEAS = { site: s.id, no, N: D.set.epochs, eps: [], rej: 0, t0: Date.now(), fixOnly: D.set.fixOnly, ant: +D.set.ant || 0, corr: { ...D.set.corr }, zone: D.set.zone, hType: D.set.hType, hModel: D.set.hType === 'ellip' ? '楕円体高' : '受信機出力（Drogger GPSのジオイド設定）' };
+  MEAS = { site: s.id, no, N: D.set.epochs, eps: [], rej: 0, t0: Date.now(), fixOnly: D.set.fixOnly, ant: +D.set.ant || 0, corr: { ...D.set.corr }, zone: D.set.zone, hType: D.set.hType, hModel: D.set.hType === 'ellip' ? '楕円体高' : (CONN && CONN.kind === 'geo' ? 'Drogger GPSの高さ' : '受信機出力'), src: CONN && CONN.kind === 'geo' ? 'Drogger GPS経由' : 'NMEA直接' };
   MRESULT = null;
   $('#mDone').hidden = true; $('#mRun').hidden = false; $('#mStart').disabled = true;
   $('#mRunT').textContent = `「${no}」を観測中`;
@@ -1111,7 +1128,7 @@ function summarize(eps) {
     N: eps.some(e => e.N != null) ? STAT.mean(eps.filter(e => e.N != null).map(e => e.N)) : null,
     sdX: STAT.sd(X), sdY: STAT.sd(Y), sdH: H.length > 1 ? STAT.sd(H) : null,
     gH: gh.length ? STAT.mean(gh) : null, gV: gv.length ? STAT.mean(gv) : null,
-    sats: Math.round(STAT.mean(eps.map(e => e.sats || 0))), hdop: STAT.mean(eps.map(e => e.hdop || 0)),
+    sats: eps.some(e => e.sats) ? Math.round(STAT.mean(eps.filter(e => e.sats).map(e => e.sats))) : null, hdop: eps.some(e => e.hdop != null) ? STAT.mean(eps.filter(e => e.hdop != null).map(e => e.hdop)) : null,
     ageMax: Math.max(...eps.map(e => e.age || 0)), fixN: eps.filter(e => e.q === 4).length
   };
 }
@@ -1127,14 +1144,14 @@ function updateMeasRun() {
 }
 function finishMeas() {
   const r = summarize(MEAS.eps);
-  MRESULT = { ...r, no: MEAS.no, site: MEAS.site, n: MEAS.eps.length, rej: MEAS.rej, t0: MEAS.t0, t1: Date.now(), ant: MEAS.ant, corr: MEAS.corr, zone: MEAS.zone, hType: MEAS.hType, hModel: MEAS.hModel, fixRatio: r.fixN / MEAS.eps.length };
+  MRESULT = { ...r, no: MEAS.no, site: MEAS.site, n: MEAS.eps.length, rej: MEAS.rej, t0: MEAS.t0, t1: Date.now(), ant: MEAS.ant, corr: MEAS.corr, zone: MEAS.zone, hType: MEAS.hType, hModel: MEAS.hModel, src: MEAS.src, fixRatio: r.fixN / MEAS.eps.length };
   MEAS = null; updateWake();
   $('#mRun').hidden = true; $('#mStart').disabled = false; $('#mDone').hidden = false;
   vibrate(300);
   const R = MRESULT;
   $('#mDoneD').innerHTML = `<dt>点番号</dt><dd>${esc(R.no)}</dd><dt>X</dt><dd>${f3(R.X)}</dd><dt>Y</dt><dd>${f3(R.Y)}</dd><dt>${R.hType === 'ellip' ? '楕円体高' : '標高'}</dt><dd>${f3(R.H)}</dd><dt>楕円体高・ジオイド高</dt><dd>${f3(R.eh)} ／ ${R.N != null ? R.N.toFixed(4) : '—'}</dd>
     <dt>標準偏差</dt><dd>X ${cm(R.sdX)} ／ Y ${cm(R.sdY)} ／ H ${cm(R.sdH)}</dd><dt>受信機σ平均</dt><dd>水平 ${cm(R.gH)} ／ 高さ ${cm(R.gV)}</dd>
-    <dt>エポック</dt><dd>採用 ${R.n}${R.rej ? ` ／ 除外 ${R.rej}` : ''}（FIX率 ${(R.fixRatio * 100).toFixed(0)}%）</dd><dt>衛星数・HDOP</dt><dd>${R.sats} ／ ${R.hdop.toFixed(1)}</dd>`;
+    <dt>エポック</dt><dd>採用 ${R.n}${R.rej ? ` ／ 除外 ${R.rej}` : ''}（FIX率 ${(R.fixRatio * 100).toFixed(0)}%）</dd><dt>衛星数・HDOP</dt><dd>${R.sats ?? '—'} ／ ${R.hdop != null ? R.hdop.toFixed(1) : '—'}</dd>`;
   $('#mNote').value = '';
   $('#mSave').focus();
 }
@@ -1434,7 +1451,7 @@ $('#eCsv').onclick = () => {
   if (!ps.length) { toast('観測済みの点がありません'); return; }
   const head = ['現場名', '点番号', 'X', 'Y', '高さ', '高さの種類', 'ジオイド・モデル', '楕円体高', 'ジオイド高', '緯度', '経度', '系', '採用エポック', '除外エポック', 'FIX率(%)', 'σX(m)', 'σY(m)', 'σH(m)', '受信機σ水平(m)', '受信機σ高さ(m)', '衛星数', 'HDOP', 'アンテナ高(m)', '補正ΔX', '補正ΔY', '補正ΔH', '観測開始', '観測終了', '備考'];
   const lines = [head.join(',')].concat(ps.map(p => [s.name, p.no, f3(p.X), f3(p.Y), f3(p.H), hLabel(p.hType), p.hModel || '', f3(p.eh), p.N == null ? '' : p.N.toFixed(4), p.lat.toFixed(9), p.lon.toFixed(9), p.zone, p.n, p.rej, (p.fixRatio * 100).toFixed(0),
-    p.sdX.toFixed(4), p.sdY.toFixed(4), p.sdH == null ? '' : p.sdH.toFixed(4), p.gH == null ? '' : p.gH.toFixed(4), p.gV == null ? '' : p.gV.toFixed(4), p.sats, p.hdop.toFixed(1), p.ant, p.corr.dX, p.corr.dY, p.corr.dH, tstr(p.t0), tstr(p.t1), p.note].map(csvq).join(',')));
+    p.sdX.toFixed(4), p.sdY.toFixed(4), p.sdH == null ? '' : p.sdH.toFixed(4), p.gH == null ? '' : p.gH.toFixed(4), p.gV == null ? '' : p.gV.toFixed(4), p.sats ?? '', p.hdop != null ? p.hdop.toFixed(1) : '', p.ant, p.corr.dX, p.corr.dY, p.corr.dH, tstr(p.t0), tstr(p.t1), p.note].map(csvq).join(',')));
   download(`観測結果_${fnameSafe(s.name)}_${stamp()}.csv`, BOM + lines.join('\r\n'));
 };
 $('#eSima').onclick = () => {
@@ -1459,7 +1476,7 @@ $('#eReport').onclick = () => {
   const hts = [...new Set(ps.map(p => hLabel(p.hType)))].join('・') || '標高';
   const gms = [...new Set(ps.filter(p => p.hType !== 'ellip').map(p => p.hModel || '（未読込）'))].join('、') || '—';
   const corrs = [...new Set(ps.map(p => `ΔX ${p.corr.dX} ／ ΔY ${p.corr.dY} ／ ΔH ${p.corr.dH}`))].join('、') || 'なし';
-  const pRows = ps.map(p => `<tr><td class="l">${esc(p.no)}</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${p.N == null ? '—' : p.N.toFixed(4)}</td><td>${p.n}${p.rej ? '／' + p.rej : ''}</td><td>${(p.fixRatio * 100).toFixed(0)}%</td><td>${(p.sdX * 100).toFixed(1)}</td><td>${(p.sdY * 100).toFixed(1)}</td><td>${p.sdH == null ? '—' : (p.sdH * 100).toFixed(1)}</td><td>${p.gH == null ? '—' : (p.gH * 100).toFixed(1)}</td><td>${p.sats}</td><td>${p.hdop.toFixed(1)}</td><td class="l">${tstr(p.t0).slice(5)}<br>〜${tstr(p.t1).slice(11)}</td><td class="l">${esc(p.note)}</td></tr>`).join('');
+  const pRows = ps.map(p => `<tr><td class="l">${esc(p.no)}</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${p.N == null ? '—' : p.N.toFixed(4)}</td><td>${p.n}${p.rej ? '／' + p.rej : ''}</td><td>${(p.fixRatio * 100).toFixed(0)}%</td><td>${(p.sdX * 100).toFixed(1)}</td><td>${(p.sdY * 100).toFixed(1)}</td><td>${p.sdH == null ? '—' : (p.sdH * 100).toFixed(1)}</td><td>${p.gH == null ? '—' : (p.gH * 100).toFixed(1)}</td><td>${p.sats ?? '—'}</td><td>${p.hdop != null ? p.hdop.toFixed(1) : '—'}</td><td class="l">${tstr(p.t0).slice(5)}<br>〜${tstr(p.t1).slice(11)}</td><td class="l">${esc(p.note)}</td></tr>`).join('');
   const sRows = s.stakes.map(r => `<tr><td class="l">${esc(r.name)}</td><td>${f3(r.tX)}</td><td>${f3(r.tY)}</td><td>${f3(r.X)}</td><td>${f3(r.Y)}</td><td>${f3(r.dX)}</td><td>${f3(r.dY)}</td><td>${r.dH == null ? '—' : f3(r.dH)}</td><td>${(r.dist * 100).toFixed(1)}</td><td class="l">${NMEA.q(r.q).short}</td><td class="l">${tstr(r.t)}</td></tr>`).join('');
   const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>観測報告書 ${esc(s.name)}</title>
 <style>@page{size:A4 landscape;margin:12mm}body{font-family:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;color:#15233A;margin:24px;font-variant-numeric:tabular-nums}
@@ -1469,7 +1486,7 @@ table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid 
 .n{font-size:11px;color:#5A6676;margin-top:8px;line-height:1.6}</style></head><body>
 <h1>CLAS観測報告書</h1>
 <div class="meta"><div><b>現場名</b>${esc(s.name)}</div><div><b>出力日時</b>${tstr(Date.now())}</div><div><b>観測点数</b>${ps.length} 点</div>
-<div><b>座標系</b>平面直角座標系 ${zones}（GRS80）</div><div><b>高さ</b>${hts}</div><div><b>ジオイド・モデル</b>${esc(gms)}</div><div><b>測位方式</b>CLAS（NMEA受信・1秒1エポック平均）</div>
+<div><b>座標系</b>平面直角座標系 ${zones}（GRS80）</div><div><b>高さ</b>${hts}</div><div><b>ジオイド・モデル</b>${esc(gms)}</div><div><b>測位方式</b>CLAS（${esc([...new Set(ps.map(p => p.src || 'NMEA直接'))].join('・'))}・1秒1エポック平均）</div>
 <div style="grid-column:1/-1"><b>既知点補正</b>${esc(corrs)}</div></div>
 ${ps.length ? `<h2>観測結果</h2><table><thead><tr><th class="l">点番号</th><th>X (m)</th><th>Y (m)</th><th>${esc(hts)} (m)</th><th>ジオイド高 (m)</th><th>採用／除外</th><th>FIX率</th><th>σX (cm)</th><th>σY (cm)</th><th>σH (cm)</th><th>受信機σ水平 (cm)</th><th>衛星</th><th>HDOP</th><th class="l">観測時間</th><th class="l">備考</th></tr></thead><tbody>${pRows}</tbody></table>` : ''}
 ${s.stakes.length ? `<h2>杭打ち記録</h2><table><thead><tr><th class="l">点名</th><th>計画X</th><th>計画Y</th><th>杭X</th><th>杭Y</th><th>ΔX</th><th>ΔY</th><th>ΔH</th><th>水平ずれ (cm)</th><th class="l">状態</th><th class="l">日時</th></tr></thead><tbody>${sRows}</tbody></table>` : ''}
@@ -1492,7 +1509,7 @@ function renderSet() {
   $('#zZone').innerHTML = Array.from({ length: 19 }, (_, i) => `<option value="${i + 1}">第${GEO.ROMAN[i + 1]}系</option>`).join('');
   $('#zZone').value = D.set.zone; $('#zH').value = D.set.hType;
   $('#kX').value = D.set.corr.dX; $('#kY').value = D.set.corr.dY; $('#kH').value = D.set.corr.dH;
-  $('#zCircle').value = D.set.circle; $('#zTol').value = D.set.tol; $('#zDecl').value = D.set.decl;
+  $('#zCircle').value = D.set.circle; $('#zFixAcc').value = D.set.fixAcc; $('#zTol').value = D.set.tol; $('#zDecl').value = D.set.decl;
   $('#zWake').checked = D.set.wake; $('#zVib').checked = D.set.vib; $('#zTheme').value = D.set.theme || '';
   const s = ensureSite();
   const ms = measured(s);
@@ -1510,6 +1527,7 @@ $('#kCalc').onclick = () => {
   if (Math.hypot(dX, dY) > 5 && !confirm(`補正量が ${Math.hypot(dX, dY).toFixed(2)} m と大きくなります。点の組み合わせを確認しましたか？`)) return;
   D.set.corr = { dX, dY, dH }; save(); recomputeLive(); renderSet(); toast('補正量を設定しました');
 };
+$('#zFixAcc').onchange = e => { D.set.fixAcc = Math.max(0.005, +e.target.value || 0.05); save(); };
 $('#zCircle').onchange = e => { D.set.circle = Math.max(0.2, +e.target.value || 1); save(); };
 $('#zTol').onchange = e => { D.set.tol = Math.max(0.005, +e.target.value || 0.02); save(); };
 $('#zDecl').onchange = e => { D.set.decl = +e.target.value || 0; save(); };
@@ -1520,7 +1538,7 @@ function applyTheme() { if (D.set.theme) document.documentElement.dataset.theme 
 
 let wakeLock = null;
 async function updateWake() {
-  const want = D.set.wake && (BT.keep || curTab === 'stake' || curTab === 'meas' || !!MEAS) && document.visibilityState === 'visible';
+  const want = D.set.wake && (BT.keep || GEOW.id != null || curTab === 'stake' || curTab === 'meas' || !!MEAS) && document.visibilityState === 'visible';
   if (BR && BR.keepScreenOn) { try { BR.keepScreenOn(!!want); } catch (e) {} return; }
   try {
     if (want && !wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
