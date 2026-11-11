@@ -171,11 +171,10 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
     <details style="margin-top:8px" id="setupDet">
       <summary>接続の前に</summary>
       <ol class="steps">
-        <li>Drogger GPS アプリの設定（歯車）で、［GNSS（衛星測位システム）］の<b>CLASをON</b>、［RTK］の<b>移動局をOFF</b>にします。</li>
-        <li>［メッセージ出力］の［メッセージ選択］（または［Bluetooth Message type］）で <b>GGA・RMC・GSA</b> にチェックを入れ、［計測・更新レート］を <b>1Hz</b> にします。</li>
-        <li>［Start］で受信機につなぎ、右上の「…」→［レシーバー］→［起動設定］で、GNSS Settings と DMP Settings の両方を<b>［現在の設定で起動］</b>にして OK を押します。</li>
-        <li>［Stop］で Drogger GPS アプリを切断します（Bluetoothは同時に1台しかつながりません）。</li>
-        <li>「受信機に接続」を押し、一覧から受信機を選びます（Android の Chrome 138 以降が必要です）。</li>
+        <li><b>初回だけ：</b>Drogger GPS アプリの設定（歯車）で、使う測位（CLAS RTK）を選び、［メッセージ出力］の［メッセージ選択］（または［Bluetooth Message type］）で <b>GGA・RMC・GSA</b> にチェック、［計測・更新レート］を <b>1Hz</b> にします。</li>
+        <li><b>受信機の電源を入れるたびに：</b>Drogger GPS で［Start］を押して設定を受信機に送り、緑のマークが付いたら［Stop］を押します。受信機は電源を切るまでこの設定を保ちます。受信機の電源を切った場合は、もう一度この操作をしてください。</li>
+        <li>このアプリで「受信機に接続」を押し、一覧から受信機を選びます（Android の Chrome 138 以降が必要です）。</li>
+        <li>Bluetooth は同時に1台しかつながりません。このアプリの使用中は Drogger GPS で［Start］を押さないでください。</li>
       </ol>
     </details>
   </div>
@@ -925,7 +924,7 @@ async function startBT() {
   try { await openPort(port, 5); }
   catch (e) {
     BT.keep = false; BT.port = null; b.disabled = false;
-    toast('接続できませんでした：' + e.message + '（Drogger GPSアプリが接続中だとつながりません）');
+    toast('接続できませんでした：' + e.message + '（Drogger GPSアプリで［Stop］を押してから、もう一度お試しください）');
     setConn(null);
     return false;
   }
