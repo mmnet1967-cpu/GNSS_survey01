@@ -1,0 +1,1545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="theme-color" content="#15233A">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CLAS測量 観測・逆打ち</title>
+<style>
+:root{
+  --paper:#F2F4EF; --panel:#FFFFFF; --ink:#15233A; --muted:#5A6676; --rule:#CCD5DC; --grid:#DCE5EA;
+  --tape:#E0007C; --tape-soft:#FCE3F0; --btn:#15233A; --btn-ink:#FFFFFF;
+  --fix:#1A7F37; --float:#B06400; --single:#C0392B; --none:#7A8594;
+  --fix-bg:#E2F2E6; --float-bg:#FBEFD9; --single-bg:#F9E1DE; --none-bg:#E8EBEF;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E151F; --panel:#162130; --ink:#E5ECF2; --muted:#98A6B5; --rule:#2B3A4C; --grid:#1D2939;
+    --tape:#FF4FA6; --tape-soft:#3A1830; --btn:#E5ECF2; --btn-ink:#0E151F;
+    --fix:#4CC46E; --float:#F0A23A; --single:#FF6B5B; --none:#8C98A6;
+    --fix-bg:#123222; --float-bg:#3A2A10; --single-bg:#3C1814; --none-bg:#222D3A;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E151F; --panel:#162130; --ink:#E5ECF2; --muted:#98A6B5; --rule:#2B3A4C; --grid:#1D2939;
+  --tape:#FF4FA6; --tape-soft:#3A1830; --btn:#E5ECF2; --btn-ink:#0E151F;
+  --fix:#4CC46E; --float:#F0A23A; --single:#FF6B5B; --none:#8C98A6;
+  --fix-bg:#123222; --float-bg:#3A2A10; --single-bg:#3C1814; --none-bg:#222D3A;
+  color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);
+  font-family:"BIZ UDPGothic","Noto Sans JP","Noto Sans CJK JP","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;
+  font-size:16px;line-height:1.55;font-variant-numeric:tabular-nums;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--panel)}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:760px;margin:0 auto;padding:0 14px 110px}
+
+/* ステータス帯 */
+.status{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--panel);border-bottom:1px solid var(--rule)}
+.status-in{max-width:760px;margin:0 auto;padding:8px 14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.badge{font-weight:700;padding:4px 10px;border-radius:6px;font-size:15px;white-space:nowrap;border:2px solid currentColor}
+.q-fix{color:var(--fix);background:var(--fix-bg)} .q-float{color:var(--float);background:var(--float-bg)}
+.q-single,.q-dgps{color:var(--single);background:var(--single-bg)} .q-none{color:var(--none);background:var(--none-bg)}
+.sline{display:flex;gap:14px;flex-wrap:wrap;font-size:14px;color:var(--muted)}
+.sline b{color:var(--ink);font-weight:700}
+.meter{flex-basis:100%;height:6px;border-radius:3px;background:var(--grid);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--none);transition:width .3s}
+
+/* タブ */
+nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--panel);border-top:1px solid var(--rule);
+  padding-bottom:env(safe-area-inset-bottom,0px)}
+nav.tabs .in{max-width:760px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+nav.tabs button{background:none;border:0;padding:10px 2px 12px;font-size:14px;color:var(--muted);cursor:pointer;border-top:3px solid transparent}
+nav.tabs button[aria-selected="true"]{color:var(--ink);font-weight:700;border-top-color:var(--tape)}
+nav.tabs button:focus-visible{outline:2px solid var(--tape);outline-offset:-4px}
+
+section.tab{display:none;padding-top:14px}
+section.tab.on{display:block}
+h2{font-size:22px;margin:6px 0 12px;letter-spacing:.02em}
+h3{font-size:17px;margin:20px 0 8px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:14px;margin-bottom:12px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.row > *{min-width:0}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);flex:1 1 140px}
+label.f > input,label.f > select{font-size:16px;color:var(--ink)}
+input[type=text],input[type=number],input[type=url],select,textarea{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:9px 10px;width:100%}
+textarea{display:block;max-width:100%;min-height:90px;resize:vertical;font-size:14px}
+input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--tape);outline-offset:1px}
+.btn{background:var(--btn);color:var(--btn-ink);border:0;border-radius:8px;padding:11px 16px;font-weight:700;cursor:pointer;font-size:15px}
+.btn.sub{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+.btn.tape{background:var(--tape);color:#fff}
+.btn.big{width:100%;padding:16px;font-size:18px}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:focus-visible{outline:3px solid var(--tape);outline-offset:2px}
+.chk{display:flex;gap:8px;align-items:center;font-size:15px}
+.chk input{width:20px;height:20px;accent-color:var(--tape)}
+.muted{color:var(--muted);font-size:14px}
+.note{font-size:13px;color:var(--muted);margin:8px 0 0}
+.warn{background:var(--float-bg);color:var(--ink);border-left:4px solid var(--float);padding:10px 12px;border-radius:6px;font-size:14px;margin:10px 0}
+.err{background:var(--single-bg);border-left:4px solid var(--single);padding:10px 12px;border-radius:6px;font-size:14px;margin:10px 0}
+
+/* 精度パネル */
+.acc{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:10px;overflow:hidden}
+.acc div{background:var(--panel);padding:10px 12px}
+.acc span{display:block;font-size:12px;color:var(--muted)}
+.acc b{font-size:20px}
+.grade{display:flex;align-items:baseline;gap:12px;margin-bottom:10px}
+.grade .g{font-size:44px;font-weight:700;line-height:1}
+.grade .gt{font-size:15px}
+pre.log{background:var(--paper);border:1px solid var(--rule);border-radius:8px;padding:8px;font-size:11px;max-height:220px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin:8px 0 0}
+
+/* 観測 */
+.prog{height:14px;background:var(--grid);border-radius:7px;overflow:hidden;margin:10px 0}
+.prog i{display:block;height:100%;width:0;background:var(--fix);transition:width .25s}
+.mres{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:15px}
+.mres dt{color:var(--muted)} .mres dd{margin:0;font-weight:700}
+
+/* 表 */
+.tblw{overflow-x:auto;border:1px solid var(--rule);border-radius:8px}
+table{border-collapse:collapse;width:100%;font-size:13px;background:var(--panel)}
+th,td{padding:7px 8px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap}
+th{background:var(--paper);color:var(--muted);font-weight:700;position:sticky;top:0}
+td.l,th.l{text-align:left}
+td button.x{background:none;border:1px solid var(--rule);border-radius:6px;color:var(--single);cursor:pointer;padding:2px 8px}
+tr.sel td{background:var(--tape-soft)}
+
+/* 逆打ち */
+.stake-top{display:flex;gap:8px;align-items:end;flex-wrap:wrap}
+.cv-wrap{position:relative;background:var(--panel);border:1px solid var(--rule);border-radius:12px;overflow:hidden;margin-top:10px}
+canvas#cv{display:block;width:100%;aspect-ratio:1/1;max-height:62vh;touch-action:none}
+.cv-msg{position:absolute;inset:auto 0 12px;text-align:center;font-weight:700}
+.read{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.read .dist{grid-column:1/-1;display:flex;align-items:baseline;justify-content:space-between;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:10px 14px}
+.read .dist b{font-size:46px;line-height:1.05;letter-spacing:-.01em}
+.read .cell{background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:8px 12px}
+.read .cell span{display:block;font-size:12px;color:var(--muted)}
+.read .cell b{font-size:22px}
+.ok{color:var(--fix)}
+.seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden}
+.seg button{background:transparent;border:0;padding:8px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:700}
+details summary{cursor:pointer;font-weight:700;padding:4px 0}
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:14px;z-index:40;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
+.toast.on{opacity:1}
+.steps{margin:8px 0 0;padding-left:1.4em;font-size:14px}.steps li{margin:4px 0}
+.live{background:var(--panel);border:2px solid var(--ink);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+.live-h{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.live-g{display:grid;grid-template-columns:1fr;gap:2px;margin-top:8px}
+.live-g div{display:flex;justify-content:space-between;align-items:baseline;border-bottom:1px dashed var(--rule);padding:4px 0}
+.live-g span{font-size:14px;color:var(--muted)} .live-g b{font-size:30px;letter-spacing:-.01em}
+.live-f{margin:6px 0 0;font-size:13px;color:var(--muted)}
+.live.stale b{color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+@media (min-width:700px){ .read{grid-template-columns:repeat(4,1fr)} }
+</style>
+</head>
+<body>
+
+<header class="status" aria-live="polite">
+  <div class="status-in">
+    <span id="stBadge" class="badge q-none">未接続</span>
+    <div class="sline">
+      <span>水平σ <b id="stH">—</b></span>
+      <span>高さσ <b id="stV">—</b></span>
+      <span>衛星 <b id="stSat">—</b></span>
+      <span>HDOP <b id="stHdop">—</b></span>
+      <span>齢 <b id="stAge">—</b></span>
+    </div>
+    <div class="meter" title="CLAS精度メーター"><i id="stMeter"></i></div>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- 受信 -->
+<section class="tab on" id="t-conn">
+  <h2>受信機とCLAS精度</h2>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center">
+      <b id="rcvState">未接続</b>
+      <button class="btn" id="bConn">受信機に接続</button>
+    </div>
+    <div id="btDiag" class="note" hidden></div>
+    <div id="rcvWarn"></div>
+    <details style="margin-top:8px" id="setupDet">
+      <summary>接続の前に</summary>
+      <ol class="steps">
+        <li>Drogger GPS アプリで受信機をCLASに設定し、NMEA出力（<b>GGA・RMC・GSA</b>、出せれば<b>GST</b>）を有効にします。</li>
+        <li>設定が済んだら、Drogger GPS アプリの「停止」で受信機との接続を切ります（Bluetoothは同時に1台しかつながりません）。</li>
+        <li>受信機を Android の Bluetooth 設定でペアリングしておきます。</li>
+        <li>「受信機に接続」を押し、一覧から受信機を選びます（Android の Chrome 138 以降が必要です）。</li>
+      </ol>
+    </details>
+  </div>
+
+  <div class="card">
+    <div class="grade"><span class="g" id="gGrade">—</span><span class="gt" id="gText">位置データを待っています</span></div>
+    <div class="acc">
+      <div><span>測位状態</span><b id="aQ">—</b></div>
+      <div><span>FIX継続時間</span><b id="aFixT">—</b></div>
+      <div><span>水平σ（受信機GST）</span><b id="aGH">—</b></div>
+      <div><span>高さσ（受信機GST）</span><b id="aGV">—</b></div>
+      <div><span>水平ばらつき（直近10秒）</span><b id="aRH">—</b></div>
+      <div><span>高さばらつき（直近10秒）</span><b id="aRV">—</b></div>
+      <div><span>使用衛星数</span><b id="aSat">—</b></div>
+      <div><span>HDOP ／ PDOP</span><b id="aDop">—</b></div>
+      <div><span>補正データ齢</span><b id="aAge">—</b></div>
+      <div><span>受信レート</span><b id="aHz">—</b></div>
+      <div><span>緯度 ／ 経度</span><b id="aLL" style="font-size:15px">—</b></div>
+      <div><span>X ／ Y ／ H</span><b id="aXY" style="font-size:15px">—</b></div>
+      <div><span>楕円体高 ／ ジオイド高</span><b id="aGeo" style="font-size:15px">—</b></div>
+    </div>
+    <p class="note">ばらつきは直近10エポックの標準偏差です。受信機σは$GSTが届いている場合だけ表示し、判定にも使います（Drogger GPSの標準出力にGSTはないため、通常はばらつきで判定します）。判定 A：2cm以下 ／ B：5cm以下 ／ C：10cm以下 ／ D：それ以上（FIX以外はC以下）。</p>
+    <details><summary>NMEAログ</summary><pre class="log" id="log"></pre></details>
+  </div>
+</section>
+
+<!-- 観測 -->
+<section class="tab" id="t-meas">
+  <h2>座標観測</h2>
+  <div class="live" aria-live="off">
+    <div class="live-h"><span id="lvBadge" class="badge q-none">受信なし</span><span class="muted" id="lvSub"></span></div>
+    <div class="live-g">
+      <div><span>X（北）</span><b id="lvX">—</b></div>
+      <div><span>Y（東）</span><b id="lvY">—</b></div>
+      <div><span id="lvHl">標高</span><b id="lvH">—</b></div>
+    </div>
+    <p class="live-f" id="lvF"></p>
+  </div>
+  <div class="card">
+    <div class="row">
+      <label class="f">現場名<select id="mSite"></select></label>
+      <label class="f">点番号<input type="text" id="mNo" list="dlPlanned" autocomplete="off"></label>
+      <datalist id="dlPlanned"></datalist>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="f">エポック数（1秒1エポック）<input type="number" id="mN" min="1" max="600" step="1"></label>
+      <label class="f">アンテナ高（m）<input type="number" id="mAnt" step="0.001"></label>
+    </div>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="mFixOnly"> FIX解のエポックだけを平均に使う</label>
+    <p class="muted" id="mNext" style="margin:8px 0 0"></p>
+  </div>
+  <button class="btn tape big" id="mStart">観測開始</button>
+  <div class="card" id="mRun" hidden style="margin-top:12px">
+    <div class="row" style="justify-content:space-between"><b id="mRunT">観測中</b><span class="muted" id="mRunC"></span></div>
+    <div class="prog"><i id="mProg"></i></div>
+    <dl class="mres" id="mRunD"></dl>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sub" id="mCancel">中止</button>
+    </div>
+  </div>
+  <div class="card" id="mDone" hidden style="margin-top:12px">
+    <b>観測結果</b>
+    <dl class="mres" id="mDoneD" style="margin-top:8px"></dl>
+    <label class="f" style="margin-top:10px">備考<input type="text" id="mNote"></label>
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="mSave">保存する</button>
+      <button class="btn sub" id="mRetry">やり直す</button>
+    </div>
+  </div>
+  <h3>この現場の観測済み点</h3>
+  <div class="tblw"><table id="mTbl"></table></div>
+</section>
+
+<!-- 逆打ち -->
+<section class="tab" id="t-stake">
+  <h2>逆打ち</h2>
+  <div class="stake-top">
+    <label class="f" style="flex:1 1 140px">現場名<select id="sSite"></select></label>
+    <label class="f" style="flex:2 1 220px">目標点<select id="sTarget"></select></label>
+  </div>
+  <div class="cv-wrap"><canvas id="cv" width="600" height="600" aria-label="杭方向の表示"></canvas><div class="cv-msg" id="cvMsg"></div></div>
+  <div class="read">
+    <div class="dist"><span class="muted" id="rMode">目標までの距離</span><b id="rDist">—</b></div>
+    <div class="cell"><span id="rNl">北 ／ 南</span><b id="rN">—</b></div>
+    <div class="cell"><span id="rEl">東 ／ 西</span><b id="rE">—</b></div>
+    <div class="cell"><span>切盛（計画高−現在高）</span><b id="rH">—</b></div>
+    <div class="cell"><span>方向角</span><b id="rB">—</b></div>
+  </div>
+  <div class="row" style="margin-top:10px;justify-content:space-between">
+    <div class="seg" role="group" aria-label="表示の向き">
+      <button data-o="north">北が上</button><button data-o="compass">コンパス</button><button data-o="course">進行方向</button>
+    </div>
+    <span class="muted" id="sHead"></span>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button class="btn sub" id="sPrev">前の点</button>
+    <button class="btn sub" id="sNext">次の点</button>
+    <button class="btn tape" id="sRec" style="flex:1">杭位置を記録</button>
+  </div>
+
+  <h3>目標点の読み込み</h3>
+  <div class="card">
+    <div class="row">
+      <label class="f">CSVの列の並び
+        <select id="iFmt">
+          <option value="nxyh">点名, X(北), Y(東), 標高</option>
+          <option value="nyxh">点名, Y(東), X(北), 標高</option>
+          <option value="nllh">点名, 緯度, 経度, 標高</option>
+        </select></label>
+      <label class="chk" style="flex:1 1 200px"><input type="checkbox" id="iReplace"> 既存の目標点を置き換える</label>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="btn" for="iFile" style="display:inline-block">CSVファイルを選ぶ</label>
+      <input type="file" id="iFile" accept=".csv,.txt,.sim,.tsv,text/csv,text/plain" hidden>
+    </div>
+    <details style="margin-top:10px"><summary>テキストを貼り付けて読み込む</summary>
+      <textarea id="iText" placeholder="P1,1234.567,-5678.901,12.345&#10;P2,1240.000,-5670.000,12.500"></textarea>
+      <button class="btn sub" id="iPaste" style="margin-top:6px">貼り付けた内容を読み込む</button>
+    </details>
+    <p class="note">区切りはカンマ・タブ・空白に対応。見出し行は自動で読み飛ばします。SIMA形式（A01行）もそのまま読み込めます。観測済みの点も目標点に選べます。</p>
+  </div>
+  <h3>杭打ち記録</h3>
+  <div class="tblw"><table id="sTbl"></table></div>
+</section>
+
+<!-- データ -->
+<section class="tab" id="t-data">
+  <h2>現場と点の管理</h2>
+  <div class="card">
+    <div class="row">
+      <label class="f" style="flex:2 1 200px">現場を選ぶ<select id="dSite"></select></label>
+      <button class="btn sub" id="dDel" style="align-self:end">この現場を削除</button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <label class="f" style="flex:2 1 200px">新しい現場名<input type="text" id="dNewName" placeholder="例：○○地区 道路改良工事"></label>
+      <button class="btn" id="dAdd" style="align-self:end">現場を追加</button>
+    </div>
+  </div>
+  <div class="card">
+    <b>点番号の事前入力</b>
+    <div class="row" style="margin-top:8px">
+      <label class="f">接頭辞<input type="text" id="gPre" value="No."></label>
+      <label class="f">開始<input type="number" id="gFrom" value="1"></label>
+      <label class="f">終了<input type="number" id="gTo" value="10"></label>
+      <button class="btn sub" id="gGen" style="align-self:end">連番で追加</button>
+    </div>
+    <label class="f" style="margin-top:10px">1行に1点ずつ入力<textarea id="gList" placeholder="BM1&#10;KBM-2&#10;IP.3"></textarea></label>
+    <button class="btn sub" id="gAdd" style="margin-top:6px">一覧から追加</button>
+  </div>
+  <h3>点の一覧</h3>
+  <div class="tblw"><table id="dTbl"></table></div>
+  <h3>出力</h3>
+  <div class="card">
+    <div class="row">
+      <button class="btn" id="eReport">観測報告書（HTML）</button>
+      <button class="btn sub" id="eCsv">観測結果CSV</button>
+      <button class="btn sub" id="eSima">SIMA形式</button>
+      <button class="btn sub" id="eStake">杭打ち記録CSV</button>
+    </div>
+    <p class="note">報告書HTMLはブラウザで開いて印刷すればPDFにできます。CSVはExcelで文字化けしないBOM付きUTF-8です。</p>
+    <div class="row" style="margin-top:12px">
+      <button class="btn sub" id="eBackup">全データをバックアップ（JSON）</button>
+      <label class="btn sub" for="eRestoreF">バックアップから復元</label>
+      <input type="file" id="eRestoreF" accept=".json,application/json" hidden>
+    </div>
+  </div>
+</section>
+
+<!-- 設定 -->
+<section class="tab" id="t-set">
+  <h2>設定</h2>
+  <div class="card">
+    <div class="row">
+      <label class="f">平面直角座標系<select id="zZone"></select></label>
+      <label class="f">高さの種類
+        <select id="zH"><option value="jp2024">標高（JPGEO2024）</option><option value="ellip">楕円体高</option></select></label>
+    </div>
+    <p class="note">標高は「楕円体高（GGAの高度＋ジオイド高）− JPGEO2024のジオイド高」で求めます。CLASの測位結果は今期の座標（ITRF系）なので、成果座標と合わせるにはセミ・ダイナミック補正か、下の既知点補正を行ってください。</p>
+  </div>
+  <div class="card">
+    <b>ジオイド・モデル（ジオイド2024日本とその周辺）</b>
+    <dl class="mres" style="margin-top:8px">
+      <dt>JPGEO2024</dt><dd id="gm1">未読込</dd>
+      <dt>基準面補正</dt><dd id="gm2">未読込</dd>
+      <dt>現在地の値</dt><dd id="gmNow">—</dd>
+    </dl>
+    <div class="row" style="margin-top:10px">
+      <label class="btn" for="gf1">JPGEO2024 を読み込む</label>
+      <input type="file" id="gf1" hidden>
+      <label class="btn sub" for="gf2">Hrefconv2024 を読み込む</label>
+      <input type="file" id="gf2" hidden>
+    </div>
+    <p class="muted" id="gmBusy" hidden>読み込み中です。数秒かかります…</p>
+    <p class="note">国土地理院の基盤地図情報サイトからダウンロードしたISG形式（.isg）を読み込みます。JPGEO2024.isg と Hrefconv2024.isg（離島の基準面補正）を読み込むか、合成版の JPGEO2024+Hrefconv2024.isg を JPGEO2024 の欄に読み込んでください。一度読み込めば端末に保存され、オフラインでも使えます。</p>
+  </div>
+  <div class="card">
+    <b>既知点補正（平行移動）</b>
+    <div class="row" style="margin-top:8px">
+      <label class="f">ΔX（m）<input type="number" id="kX" step="0.001"></label>
+      <label class="f">ΔY（m）<input type="number" id="kY" step="0.001"></label>
+      <label class="f">ΔH（m）<input type="number" id="kH" step="0.001"></label>
+    </div>
+    <details style="margin-top:10px"><summary>既知点の観測から補正量を求める</summary>
+      <div class="row" style="margin-top:8px">
+        <label class="f">観測した点<select id="kObs"></select></label>
+        <label class="f">既知座標（目標点から）<select id="kKnown"></select></label>
+      </div>
+      <button class="btn sub" id="kCalc" style="margin-top:8px">補正量を計算して入力</button>
+    </details>
+    <p class="note">補正量は以後の観測・逆打ちに適用されます。保存済みの点には観測時の補正量が記録されます。</p>
+  </div>
+  <div class="card">
+    <div class="row">
+      <label class="f">円表示に切り替える距離（m）<input type="number" id="zCircle" step="0.1" min="0.2"></label>
+      <label class="f">杭位置OKの許容値（m）<input type="number" id="zTol" step="0.005" min="0.005"></label>
+      <label class="f">磁気偏角（度、西偏は−）<input type="number" id="zDecl" step="0.1"></label>
+    </div>
+    <label class="chk" style="margin-top:10px"><input type="checkbox" id="zWake"> 観測中・逆打ち中は画面を消さない</label>
+    <label class="chk" style="margin-top:6px"><input type="checkbox" id="zVib"> 杭位置OKで振動させる</label>
+  </div>
+  <div class="card">
+    <b>動作確認</b>
+    <div class="row" style="margin-top:8px"><button class="btn sub" id="bSim">デモ受信を開始</button><button class="btn sub" id="bSimStop" hidden>デモ受信を止める</button></div>
+    <p class="note">受信機がなくても、模擬データで観測・逆打ちの流れを確認できます。</p>
+  </div>
+  <div class="card">
+    <b>このページを端末に配る</b>
+    <div class="row" style="margin-top:8px"><button class="btn sub" id="bQr">QRコードを表示</button></div>
+    <div id="qrBox" hidden style="margin-top:12px;text-align:center">
+      <div id="qr" style="display:inline-block;background:#fff;padding:12px;border-radius:8px"></div>
+      <p class="muted" id="qrUrl" style="word-break:break-all"></p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="row"><label class="f">表示テーマ<select id="zTheme"><option value="">端末に合わせる</option><option value="light">ライト</option><option value="dark">ダーク</option></select></label></div>
+  </div>
+</section>
+</main>
+
+<nav class="tabs" aria-label="画面切り替え"><div class="in" role="tablist">
+  <button role="tab" data-t="conn" aria-selected="true">受信</button>
+  <button role="tab" data-t="meas" aria-selected="false">観測</button>
+  <button role="tab" data-t="stake" aria-selected="false">逆打ち</button>
+  <button role="tab" data-t="data" aria-selected="false">データ</button>
+  <button role="tab" data-t="set" aria-selected="false">設定</button>
+</div></nav>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===== Core: 平面直角座標変換 (GRS80, 河瀬2011式) / NMEA解析 / 統計 ===== */
+const GEO = (() => {
+  const a = 6378137.0, F = 298.257222101, m0 = 0.9999;
+  const n = 1 / (2 * F - 1);
+  const n2 = n*n, n3 = n2*n, n4 = n3*n, n5 = n4*n, n6 = n5*n;
+  const A = [1 + n2/4 + n4/64,
+    -1.5*(n - n3/8 - n5/64),
+    15/16*(n2 - n4/4),
+    -35/48*(n3 - 5/16*n5),
+    315/512*n4,
+    -693/1280*n5];
+  const al = [0,
+    n/2 - 2/3*n2 + 5/16*n3 + 41/180*n4 - 127/288*n5,
+    13/48*n2 - 3/5*n3 + 557/1440*n4 + 281/630*n5,
+    61/240*n3 - 103/140*n4 + 15061/26880*n5,
+    49561/161280*n4 - 179/168*n5,
+    34729/80640*n5];
+  const be = [0,
+    n/2 - 2/3*n2 + 37/96*n3 - 1/360*n4 - 81/512*n5,
+    1/48*n2 + 1/15*n3 - 437/1440*n4 + 46/105*n5,
+    17/480*n3 - 37/840*n4 - 209/4480*n5,
+    4397/161280*n4 - 11/504*n5,
+    4583/161280*n5];
+  const de = [0,
+    2*n - 2/3*n2 - 2*n3 + 116/45*n4 + 26/45*n5 - 2854/675*n6,
+    7/3*n2 - 8/5*n3 - 227/45*n4 + 2704/315*n5 + 2323/945*n6,
+    56/15*n3 - 136/35*n4 - 1262/105*n5 + 73814/2835*n6,
+    4279/630*n4 - 332/35*n5 - 399572/14175*n6,
+    4174/315*n5 - 144838/6237*n6,
+    601676/22275*n6];
+  const Abar = m0 * a / (1 + n) * A[0];
+  const rad = d => d * Math.PI / 180;
+  const deg = r => r * 180 / Math.PI;
+  // 系番号: [原点緯度(度,分), 原点経度(度,分)]
+  const ZONES = {1:[33,0,129,30],2:[33,0,131,0],3:[36,0,132,10],4:[33,0,133,30],5:[36,0,134,20],
+    6:[36,0,136,0],7:[36,0,137,10],8:[36,0,138,30],9:[36,0,139,50],10:[40,0,140,50],
+    11:[44,0,140,15],12:[44,0,142,15],13:[44,0,144,15],14:[26,0,142,0],15:[26,0,127,30],
+    16:[26,0,124,0],17:[26,0,131,0],18:[20,0,136,0],19:[26,0,154,0]};
+  const ROMAN = ['','I','II','III','IV','V','VI','VII','VIII','IX','X','XI','XII','XIII','XIV','XV','XVI','XVII','XVIII','XIX'];
+  function origin(z) { const o = ZONES[z]; return [rad(o[0] + o[1]/60), rad(o[2] + o[3]/60)]; }
+  function Sphi(phi0) {
+    let s = A[0]*phi0;
+    for (let j = 1; j <= 5; j++) s += A[j]*Math.sin(2*j*phi0);
+    return m0 * a / (1 + n) * s;
+  }
+  // 緯度経度(度) -> X(北),Y(東) [m]
+  function toXY(latDeg, lonDeg, zone) {
+    const [p0, l0] = origin(zone);
+    const phi = rad(latDeg), lam = rad(lonDeg);
+    const k = 2*Math.sqrt(n)/(1+n);
+    const t = Math.sinh(Math.atanh(Math.sin(phi)) - k*Math.atanh(k*Math.sin(phi)));
+    const tb = Math.sqrt(1 + t*t);
+    const lc = Math.cos(lam - l0), ls = Math.sin(lam - l0);
+    const xi = Math.atan(t/lc), eta = Math.atanh(ls/tb);
+    let x = xi, y = eta;
+    for (let j = 1; j <= 5; j++) {
+      x += al[j]*Math.sin(2*j*xi)*Math.cosh(2*j*eta);
+      y += al[j]*Math.cos(2*j*xi)*Math.sinh(2*j*eta);
+    }
+    return { X: Abar*x - Sphi(p0), Y: Abar*y };
+  }
+  // X,Y -> 緯度経度(度)
+  function toLL(X, Y, zone) {
+    const [p0, l0] = origin(zone);
+    const xi = (X + Sphi(p0))/Abar, eta = Y/Abar;
+    let xp = xi, ep = eta;
+    for (let j = 1; j <= 5; j++) {
+      xp -= be[j]*Math.sin(2*j*xi)*Math.cosh(2*j*eta);
+      ep -= be[j]*Math.cos(2*j*xi)*Math.sinh(2*j*eta);
+    }
+    const chi = Math.asin(Math.sin(xp)/Math.cosh(ep));
+    let phi = chi;
+    for (let j = 1; j <= 6; j++) phi += de[j]*Math.sin(2*j*chi);
+    const lam = l0 + Math.atan(Math.sinh(ep)/Math.cos(xp));
+    return { lat: deg(phi), lon: deg(lam) };
+  }
+  // 地点の緯度経度から最寄りの系を推定 (参考値)
+  function guessZone(lat, lon) {
+    let best = 9, bd = 1e9;
+    for (const z of [1,2,3,4,5,6,7,8,9,10,11,12,13]) {
+      const o = ZONES[z]; const d = Math.abs(lon - (o[2]+o[3]/60)) + Math.abs(lat - o[0])*0.15;
+      if (d < bd) { bd = d; best = z; }
+    }
+    return best;
+  }
+  return { toXY, toLL, ROMAN, guessZone };
+})();
+
+const NMEA = (() => {
+  function checksumOK(line) {
+    const star = line.lastIndexOf('*');
+    if (star < 0) return true; // チェックサム無しは許容
+    let c = 0;
+    for (let i = 1; i < star; i++) c ^= line.charCodeAt(i);
+    return c === parseInt(line.slice(star+1, star+3), 16);
+  }
+  function dm(v, h) {
+    if (!v) return null;
+    const dot = v.indexOf('.');
+    const dd = parseFloat(v.slice(0, dot - 2)), mm = parseFloat(v.slice(dot - 2));
+    let r = dd + mm/60;
+    if (h === 'S' || h === 'W') r = -r;
+    return r;
+  }
+  const num = s => (s === '' || s == null) ? null : parseFloat(s);
+  // 1行を解析して {type, ...} を返す
+  function parse(line) {
+    line = line.trim();
+    if (!line.startsWith('$') || line.length < 7) return null;
+    if (!checksumOK(line)) return { type: 'BAD' };
+    const body = line.split('*')[0];
+    const f = body.split(',');
+    const id = f[0].slice(3); const talker = f[0].slice(1,3);
+    switch (id) {
+      case 'GGA': return { type:'GGA', talker, time:f[1], lat:dm(f[2],f[3]), lon:dm(f[4],f[5]),
+        quality: parseInt(f[6]||'0',10), sats: parseInt(f[7]||'0',10), hdop:num(f[8]),
+        alt:num(f[9]), sep:num(f[11]), age:num(f[13]), station:f[14]||'' };
+      case 'GST': return { type:'GST', time:f[1], rms:num(f[2]), sdLat:num(f[6]), sdLon:num(f[7]), sdAlt:num(f[8]) };
+      case 'RMC': return { type:'RMC', time:f[1], status:f[2], lat:dm(f[3],f[4]), lon:dm(f[5],f[6]),
+        speed: f[7]===''?null:parseFloat(f[7])*0.514444, course:num(f[8]), date:f[9], mode:f[12]||'' };
+      case 'VTG': return { type:'VTG', course:num(f[1]), speed: f[7]===''?null:parseFloat(f[7])/3.6 };
+      case 'GSA': return { type:'GSA', talker, fix:parseInt(f[2]||'1',10), pdop:num(f[15]), hdop:num(f[16]), vdop:num(f[17]) };
+      case 'GSV': return { type:'GSV', talker, total:parseInt(f[1]||'0',10), num:parseInt(f[2]||'0',10), inView:parseInt(f[3]||'0',10) };
+      default: return { type: id };
+    }
+  }
+  const QUALITY = {
+    0: { key:'none',  label:'測位なし', short:'NO FIX' },
+    1: { key:'single',label:'単独測位', short:'単独' },
+    2: { key:'dgps',  label:'DGPS/SBAS', short:'DGPS' },
+    4: { key:'fix',   label:'CLAS FIX', short:'FIX' },
+    5: { key:'float', label:'FLOAT', short:'FLOAT' },
+    6: { key:'single',label:'推測航法', short:'DR' }
+  };
+  const q = v => QUALITY[v] || { key:'single', label:'品質'+v, short:'Q'+v };
+  return { parse, q };
+})();
+
+const STAT = {
+  mean(a) { return a.reduce((s,v)=>s+v,0)/a.length; },
+  sd(a) { if (a.length < 2) return 0; const m = STAT.mean(a); return Math.sqrt(a.reduce((s,v)=>s+(v-m)*(v-m),0)/(a.length-1)); }
+};
+
+// 方位角(北=0°, 時計回り)と距離
+function bearingDist(fromX, fromY, toX, toY) {
+  const dN = toX - fromX, dE = toY - fromY;
+  let b = Math.atan2(dE, dN) * 180 / Math.PI; if (b < 0) b += 360;
+  return { dN, dE, dist: Math.hypot(dN, dE), bearing: b };
+}
+
+
+
+/* ===== ジオイド (ISG形式: JPGEO2024 / Hrefconv2024) ===== */
+const GEOID = (() => {
+  function parseAngle(s) {
+    s = String(s).trim();
+    const m = s.match(/^(-?\d+(?:\.\d+)?)\s*°\s*(\d+(?:\.\d+)?)\s*'\s*(\d+(?:\.\d+)?)/);
+    if (m) { const sg = s.startsWith('-') ? -1 : 1; return sg * (Math.abs(+m[1]) + (+m[2]) / 60 + (+m[3]) / 3600); }
+    const v = parseFloat(s); return isNaN(v) ? null : v;
+  }
+  // ISGテキストを解析して {name, latMin, lonMin, dLat, dLon, nrows, ncols, data(Float32Array, 南→北)} を返す
+  function parseISG(text) {
+    const end = text.indexOf('end_of_head');
+    if (end < 0) throw new Error('ISG形式のヘッダー(end_of_head)が見つかりません');
+    const head = text.slice(0, end);
+    const H = {};
+    head.split(/\r?\n/).forEach(l => {
+      const m = l.match(/^\s*([a-zA-Z][a-zA-Z _]*?)\s*[=:]\s*(.+?)\s*$/);
+      if (m) H[m[1].toLowerCase()] = m[2];
+    });
+    const latMin = parseAngle(H['lat min']), lonMin = parseAngle(H['lon min']);
+    const dLat = parseAngle(H['delta lat']), dLon = parseAngle(H['delta lon']);
+    const nrows = parseInt(H['nrows'], 10), ncols = parseInt(H['ncols'], 10);
+    const nodata = H['nodata'] != null ? parseFloat(H['nodata']) : -9999;
+    if ([latMin, lonMin, dLat, dLon].some(v => v == null) || !nrows || !ncols) throw new Error('ヘッダーの範囲・間隔・行列数を読み取れません');
+    const order = (H['data ordering'] || 'N-to-S, W-to-E').toUpperCase();
+    const nToS = !/S-TO-N/.test(order);
+    const total = nrows * ncols;
+    const data = new Float32Array(total);
+    let i = 0, p = text.indexOf('\n', end) + 1;
+    const L = text.length;
+    // 高速な数値読み取り
+    while (i < total && p < L) {
+      let c = text.charCodeAt(p);
+      if (c <= 32) { p++; continue; }
+      let q = p; while (q < L && text.charCodeAt(q) > 32) q++;
+      const v = parseFloat(text.slice(p, q));
+      const row = Math.floor(i / ncols), col = i % ncols;
+      const r = nToS ? (nrows - 1 - row) : row; // 内部は南→北
+      data[r * ncols + col] = (Math.abs(v - nodata) < 1e-4) ? NaN : v;
+      i++; p = q;
+    }
+    if (i < total) throw new Error(`格子点の数が足りません（${i} ／ ${total}）`);
+    return { name: (H['model name'] || '').trim() || 'ISGモデル', latMin, lonMin, dLat, dLon, nrows, ncols, data };
+  }
+  // 双一次補間（国土地理院方式）。範囲外・欠測は null
+  function interp(g, lat, lon) {
+    if (!g) return null;
+    const gx = (lon - g.lonMin) / g.dLon, gy = (lat - g.latMin) / g.dLat;
+    if (gx < 0 || gy < 0) return null;
+    const ix = Math.floor(gx), iy = Math.floor(gy);
+    if (ix >= g.ncols - 1 || iy >= g.nrows - 1) {
+      if (ix === g.ncols - 1 && gx === ix && iy < g.nrows) return nn(g.data[iy * g.ncols + ix]);
+      return null;
+    }
+    const x = gx - ix, y = gy - iy, n = g.ncols;
+    const v00 = g.data[iy * n + ix], v01 = g.data[iy * n + ix + 1], v10 = g.data[(iy + 1) * n + ix], v11 = g.data[(iy + 1) * n + ix + 1];
+    let v;
+    if (x === 0 && y === 0) v = v00;
+    else if (x === 0) v = v00 * (1 - y) + v10 * y;
+    else if (y === 0) v = v00 * (1 - x) + v01 * x;
+    else v = v00 * (1 - x) * (1 - y) + v01 * x * (1 - y) + v10 * (1 - x) * y + v11 * x * y;
+    return nn(v);
+  }
+  const nn = v => (v == null || isNaN(v)) ? null : v;
+  return { parseISG, interp };
+})();
+
+
+
+</script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+const f3 = v => (v == null || isNaN(v)) ? '—' : v.toFixed(3);
+const cm = v => (v == null || isNaN(v)) ? '—' : (v * 100).toFixed(1) + 'cm';
+const pad2 = v => String(v).padStart(2, '0');
+const tstr = ms => { const d = new Date(ms); return `${d.getFullYear()}/${pad2(d.getMonth()+1)}/${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
+const dms = deg => { const d = Math.floor(deg); const m = Math.floor((deg - d) * 60); const s = Math.round(((deg - d) * 60 - m) * 60); return `${d}°${pad2(m)}′${pad2(s)}″`; };
+const BR = window.AndroidBridge || null; // Androidアプリ内で動作しているとき
+const NMEA_PORT = 10110;
+
+/* ---------- 保存 ---------- */
+const KEY = 'clas-survey-v1';
+const DEF = {
+  sites: [], cur: null,
+  set: { zone: 9, hType: 'jp2024', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
+    circle: 1.0, tol: 0.02, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
+  stake: null
+};
+let D;
+try { D = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { D = null; }
+if (!D || !Array.isArray(D.sites)) D = JSON.parse(JSON.stringify(DEF));
+D.set = Object.assign({}, DEF.set, D.set || {}); if (D.set.hType === 'ortho') D.set.hType = 'jp2024'; D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {});
+let saveTimer = null;
+function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} }, 150); }
+function site() { return D.sites.find(s => s.id === D.cur) || null; }
+function ensureSite() {
+  if (!D.sites.length) { const s = { id: uid(), name: '現場1', created: Date.now(), points: [], targets: [], stakes: [] }; D.sites.push(s); D.cur = s.id; save(); }
+  if (!site()) D.cur = D.sites[0].id;
+  return site();
+}
+
+/* ---------- 通知 ---------- */
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+
+/* ---------- ダウンロード ---------- */
+const dlP = (window.claude && typeof window.claude.use === 'function') ? window.claude.use('downloads').catch(() => null) : Promise.resolve(null);
+let saveCb = null;
+window.__saved = (ok, name) => { toast(ok ? '保存しました：' + name : '保存を取り消しました'); };
+async function download(filename, text) {
+  if (BR && BR.saveText) { try { BR.saveText(filename, text); return; } catch (e) {} }
+  const dl = await Promise.race([dlP, new Promise(r => setTimeout(() => r(null), 1500))]);
+  if (dl) {
+    try { await dl.save({ filename, data: text }); toast('保存しました：' + filename); return; }
+    catch (e) { if (e && e.code === 'declined') return; if (e && e.code === 'rate_limited') { toast('少し待ってからもう一度押してください'); return; } }
+  }
+  try {
+    const blob = new Blob([text], { type: 'application/octet-stream' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('保存しました：' + filename);
+  } catch (e) { toast('この環境ではファイルを保存できません'); }
+}
+
+/* ---------- 受信状態 ---------- */
+const L = { gga: null, gst: null, gstAt: 0, rmc: null, gsa: null, lastAt: 0, lastTime: '', arrivals: [], ring: [], fixSince: null, X: null, Y: null, H: null, heading: null };
+let logLines = [];
+
+function feedLine(line) {
+  const m = NMEA.parse(line);
+  if (!m) return;
+  BT.lines++; if (m.type === 'BAD') { BT.bad++; return; } BT.last = line.trim().slice(0, 82); if (m.type === 'GGA') BT.gga++;
+  if (logLines.length > 60) logLines.shift();
+  logLines.push(line.trim());
+  if (m.type === 'GGA') onGGA(m);
+  else if (m.type === 'GST') { L.gst = m; L.gstAt = Date.now(); updateStatus(); updateLive(); }
+  else if (m.type === 'RMC') L.rmc = m;
+  else if (m.type === 'VTG') L.vtg = m;
+  else if (m.type === 'GSA') L.gsa = m;
+}
+let lineBuf = '';
+function feedText(txt) {
+  lineBuf += txt;
+  let i;
+  while ((i = lineBuf.search(/\r?\n/)) >= 0) { const ln = lineBuf.slice(0, i); lineBuf = lineBuf.slice(i + 1).replace(/^\n/, ''); if (ln.trim()) feedLine(ln); }
+  // 改行が来ないまま次の$が来た場合
+  if (lineBuf.length > 400) { const k = lineBuf.lastIndexOf('$'); if (k > 0) { lineBuf.slice(0, k).split('$').forEach(p => p && feedLine('$' + p)); lineBuf = lineBuf.slice(k); } else lineBuf = ''; }
+}
+
+function computeXYH(g) {
+  const s = D.set;
+  const p = GEO.toXY(g.lat, g.lon, s.zone);
+  const eh = g.alt == null ? null : g.alt + (g.sep || 0); // 楕円体高
+  const N = geoidN(g.lat, g.lon);
+  let h = null;
+  if (eh != null) {
+    if (s.hType === 'ellip') h = eh;
+    else if (N != null) h = eh - N;
+  }
+  if (h != null) h -= (+s.ant || 0);
+  return { rX: p.X, rY: p.Y, rH: h, X: p.X + s.corr.dX, Y: p.Y + s.corr.dY, H: h == null ? null : h + s.corr.dH, eh, N };
+}
+function hLabel(t) { return (t || D.set.hType) === 'ellip' ? '楕円体高' : '標高'; }
+
+/* ---------- ジオイド ---------- */
+const GM = { main: null, href: null };
+function geoidN(lat, lon) {
+  if (!GM.main) return null;
+  const n = GEOID.interp(GM.main, lat, lon); if (n == null) return null;
+  if (GM.href && !/hrefconv/i.test(GM.main.name)) { const r = GEOID.interp(GM.href, lat, lon); return n + (r || 0); }
+  return n;
+}
+function geoidName() {
+  if (!GM.main) return null;
+  return /hrefconv/i.test(GM.main.name) || !GM.href ? GM.main.name : GM.main.name + ' + ' + GM.href.name;
+}
+function idb() {
+  return new Promise((res, rej) => { const r = indexedDB.open('clas-geoid', 1); r.onupgradeneeded = () => r.result.createObjectStore('g'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+}
+async function idbPut(k, v) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('g', 'readwrite'); t.objectStore('g').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+async function idbGet(k) { const db = await idb(); return new Promise((res, rej) => { const t = db.transaction('g'); const q = t.objectStore('g').get(k); q.onsuccess = () => res(q.result || null); q.onerror = () => rej(q.error); }); }
+async function loadGeoids() {
+  try { GM.main = await idbGet('main'); GM.href = await idbGet('href'); } catch (e) {}
+  renderGeoid(); recomputeLive();
+}
+function gmDesc(g) { if (!g) return '未読込'; return `${esc(g.name)}（北緯${g.latMin.toFixed(2)}〜${(g.latMin + g.dLat * (g.nrows - 1)).toFixed(2)}° ／ 東経${g.lonMin.toFixed(2)}〜${(g.lonMin + g.dLon * (g.ncols - 1)).toFixed(2)}°）`; }
+function renderGeoid() {
+  $('#gm1').innerHTML = gmDesc(GM.main);
+  $('#gm2').innerHTML = GM.main && /hrefconv/i.test(GM.main.name) ? '合成版に含まれています' : gmDesc(GM.href);
+  const g = L.gga;
+  $('#gmNow').textContent = g && g.lat != null ? (geoidN(g.lat, g.lon) != null ? geoidN(g.lat, g.lon).toFixed(4) + ' m' : 'モデルの範囲外か未読込') : '位置データなし';
+}
+async function importGeoid(file, slot) {
+  if (!file) return;
+  $('#gmBusy').hidden = false;
+  await new Promise(r => setTimeout(r, 50));
+  try {
+    const g = GEOID.parseISG(await file.text());
+    if (slot === 'href' && !/href/i.test(g.name + file.name) && !confirm('基準面補正のファイルではないようです。このまま読み込みますか？')) return;
+    if (slot === 'main' && /href/i.test(g.name) && !/jpgeo/i.test(g.name) && !confirm('基準面補正（Hrefconv2024）のファイルのようです。JPGEO2024の欄に読み込みますか？')) return;
+    GM[slot] = g;
+    try { await idbPut(slot, g); } catch (e) { toast('端末への保存に失敗しました。次回起動時に再度読み込みが必要です'); }
+    recomputeLive(); renderGeoid();
+    toast(`${g.name} を読み込みました（${(g.nrows * g.ncols).toLocaleString()}点）`);
+  } catch (e) { toast('読み込めませんでした：' + e.message); }
+  finally { $('#gmBusy').hidden = true; }
+}
+$('#gf1').onchange = e => { importGeoid(e.target.files[0], 'main'); e.target.value = ''; };
+$('#gf2').onchange = e => { importGeoid(e.target.files[0], 'href'); e.target.value = ''; };
+
+function onGGA(g) {
+  const now = Date.now();
+  const sec = (g.time || '').slice(0, 6);
+  if (sec && sec === L.lastTime) return; // 1秒1エポック（高レート出力でも各秒の最初のGGAだけ使う）
+  L.lastTime = sec; L.lastAt = now;
+  L.arrivals.push(now); while (L.arrivals.length && now - L.arrivals[0] > 5000) L.arrivals.shift();
+  L.gga = g;
+  if (g.quality === 4) { if (!L.fixSince) L.fixSince = now; } else L.fixSince = null;
+  if (g.lat == null || g.quality === 0) { L.X = L.Y = L.H = null; updateStatus(); return; }
+  const c = computeXYH(g);
+  Object.assign(L, c);
+  const gstOk = L.gst && now - L.gstAt < 2500;
+  const ep = { t: now, time: g.time, lat: g.lat, lon: g.lon, alt: g.alt, sep: g.sep, q: g.quality, sats: g.sats, hdop: g.hdop, age: g.age,
+    gH: gstOk && L.gst.sdLat != null ? Math.hypot(L.gst.sdLat, L.gst.sdLon) : null, gV: gstOk ? L.gst.sdAlt : null, ...c };
+  L.ring.push(ep); if (L.ring.length > 10) L.ring.shift();
+  L.ep = ep;
+  updateStatus(); updateLive();
+  if (MEAS) measEpoch(ep);
+  if (curTab === 'stake') drawStake();
+}
+
+function ringSd() {
+  const r = L.ring.filter(e => e.q === (L.gga ? L.gga.quality : 4));
+  if (r.length < 3) return { h: null, v: null };
+  const sx = STAT.sd(r.map(e => e.X)), sy = STAT.sd(r.map(e => e.Y));
+  const hv = r.filter(e => e.H != null).map(e => e.H);
+  return { h: Math.hypot(sx, sy), v: hv.length > 2 ? STAT.sd(hv) : null };
+}
+function accuracy() {
+  const g = L.gga; if (!g) return null;
+  const now = Date.now();
+  const gstOk = L.gst && now - L.gstAt < 2500 && L.gst.sdLat != null;
+  const gH = gstOk ? Math.hypot(L.gst.sdLat, L.gst.sdLon) : null;
+  const gV = gstOk ? L.gst.sdAlt : null;
+  const rs = ringSd();
+  const h = gH != null ? gH : rs.h; // GSTがあればGST、無ければ直近のばらつき
+  let grade = 'D';
+  if (h != null) grade = h <= 0.02 ? 'A' : h <= 0.05 ? 'B' : h <= 0.10 ? 'C' : 'D';
+  if (g.quality !== 4 && (grade === 'A' || grade === 'B')) grade = 'C';
+  if (g.quality === 0) grade = '—';
+  return { gH, gV, rH: rs.h, rV: rs.v, h, grade };
+}
+
+function qClass(q) { return 'q-' + NMEA.q(q).key; }
+function updateStatus() {
+  const g = L.gga, b = $('#stBadge');
+  const stale = !g || Date.now() - L.lastAt > 3000;
+  if (stale) {
+    b.className = 'badge q-none'; b.textContent = CONN ? '受信待ち' : '未接続';
+    ['#stH', '#stV', '#stSat', '#stHdop', '#stAge'].forEach(s => $(s).textContent = '—');
+    $('#stMeter').style.width = '0';
+    $('#gGrade').textContent = '—'; $('#gText').textContent = CONN ? 'NMEAを待っています' : '受信機に接続してください';
+    updateLive();
+    return;
+  }
+  const q = NMEA.q(g.quality), a = accuracy();
+  b.className = 'badge ' + qClass(g.quality); b.textContent = q.label;
+  $('#stH').textContent = cm(a.h); $('#stV').textContent = cm(a.gV != null ? a.gV : a.rV);
+  $('#stSat').textContent = g.sats || '—'; $('#stHdop').textContent = g.hdop != null ? g.hdop.toFixed(1) : '—';
+  $('#stAge').textContent = g.age != null ? g.age.toFixed(0) + 's' : '—';
+  const pct = a.h == null ? 0 : Math.max(4, Math.min(100, 100 - (a.h - 0.01) / 0.19 * 100));
+  const m = $('#stMeter'); m.style.width = (g.quality === 0 ? 0 : pct) + '%';
+  m.style.background = `var(--${q.key === 'dgps' ? 'single' : q.key})`;
+  // 詳細
+  const gt = { A: '杭打ち・観測に使える精度です', B: 'ほぼ良好。重要点は観測時間を延ばしてください', C: '精度不足。FIXと衛星の受信状況を確認してください', D: '観測には使えません', '—': '測位できていません' };
+  $('#gGrade').textContent = a.grade; $('#gGrade').className = 'g ' + (a.grade === 'A' ? 'ok' : '');
+  $('#gText').textContent = gt[a.grade];
+  $('#aQ').textContent = q.label; $('#aQ').className = qClass(g.quality).replace('q-', 'q-') + '';
+  $('#aQ').style.background = 'none';
+  $('#aFixT').textContent = L.fixSince ? fmtDur(Date.now() - L.fixSince) : '—';
+  $('#aGH').textContent = a.gH != null ? cm(a.gH) : 'GST未出力';
+  $('#aGV').textContent = a.gV != null ? cm(a.gV) : 'GST未出力';
+  $('#aRH').textContent = cm(a.rH); $('#aRV').textContent = cm(a.rV);
+  $('#aSat').textContent = g.sats ?? '—';
+  $('#aDop').textContent = (g.hdop != null ? g.hdop.toFixed(1) : '—') + ' ／ ' + (L.gsa && L.gsa.pdop != null ? L.gsa.pdop.toFixed(1) : '—');
+  $('#aAge').textContent = g.age != null ? g.age.toFixed(1) + '秒' : '—';
+  $('#aHz').textContent = (L.arrivals.length / 5).toFixed(1) + 'Hz';
+  $('#aLL').textContent = g.lat != null ? `${g.lat.toFixed(8)} ／ ${g.lon.toFixed(8)}` : '—';
+  $('#aXY').textContent = L.X != null ? `${f3(L.X)} ／ ${f3(L.Y)} ／ ${f3(L.H)}` : '—';
+  $('#aGeo').textContent = L.eh != null ? `${f3(L.eh)} ／ ${L.N != null ? L.N.toFixed(4) : '未読込'}` : '—';
+  const frozen = L.ring.length >= 6 && L.ring.slice(-6).every(e => e.lat === L.ring[L.ring.length - 1].lat && e.lon === L.ring[L.ring.length - 1].lon);
+  const warns = [];
+  if (frozen) warns.push('位置が数秒間まったく変化していません。受信機の出力設定を確認してください。');
+  if (D.set.hType !== 'ellip' && L.N == null) warns.push(GM.main ? '現在地がジオイド・モデルの範囲外です。標高を計算できません。' : 'JPGEO2024が未読込のため標高を計算できません。設定タブで読み込んでください。');
+  $('#rcvWarn').innerHTML = warns.map(w => `<div class="warn">${esc(w)}</div>`).join('');
+  const lg = $('#log'); if (lg.parentElement.open) lg.textContent = logLines.slice(-40).join('\n');
+}
+function updateLive() {
+  const box = document.querySelector('.live'); if (!box) return;
+  const g = L.gga; const fresh = g && Date.now() - L.lastAt < 3000 && L.X != null;
+  box.classList.toggle('stale', !fresh);
+  $('#lvHl').textContent = hLabel() + (D.set.hType === 'ellip' ? '' : '（JPGEO2024）');
+  if (!g || Date.now() - L.lastAt > 3000) { $('#lvBadge').className = 'badge q-none'; $('#lvBadge').textContent = '受信なし'; $('#lvSub').textContent = ''; $('#lvF').textContent = '受信タブで受信機に接続すると、ここに現在の座標が毎秒表示されます。'; return; }
+  const q = NMEA.q(g.quality), a = accuracy();
+  $('#lvBadge').className = 'badge ' + qClass(g.quality); $('#lvBadge').textContent = q.label;
+  $('#lvSub').textContent = `水平 ${cm(a.h)} ／ 衛星 ${g.sats || '—'} ／ HDOP ${g.hdop != null ? g.hdop.toFixed(1) : '—'}`;
+  $('#lvX').textContent = f3(L.X); $('#lvY').textContent = f3(L.Y);
+  $('#lvH').textContent = L.H != null ? f3(L.H) : (D.set.hType === 'ellip' ? '—' : GM.main ? 'モデル範囲外' : 'ジオイド未読込');
+  $('#lvH').style.fontSize = L.H != null ? '' : '18px';
+  const c = D.set.corr, cOn = c.dX || c.dY || c.dH;
+  $('#lvF').textContent = `平面直角座標系 第${GEO.ROMAN[D.set.zone]}系` + (L.N != null ? ` ／ ジオイド高 ${L.N.toFixed(3)} m` : '') + ((+D.set.ant) ? ` ／ アンテナ高 ${(+D.set.ant).toFixed(3)} m 控除` : '') + (cOn ? ' ／ 既知点補正あり' : '');
+}
+function fmtDur(ms) { const s = Math.floor(ms / 1000); return s >= 3600 ? `${Math.floor(s / 3600)}時間${pad2(Math.floor(s % 3600 / 60))}分` : `${Math.floor(s / 60)}分${pad2(s % 60)}秒`; }
+setInterval(() => { updateStatus(); if (curTab === 'set') renderGeoid(); if (curTab === 'stake') drawStake(); }, 1000);
+
+/* ---------- 受信（受信機とBluetoothで直接接続：Web Serial / SPP） ---------- */
+let CONN = null; // { kind:'bt'|'tcp'|'demo' }
+const BT = { port: null, reader: null, keep: false, bytes: 0, bin: 0, lines: 0, gga: 0, bad: 0, last: '', hex: '', lastAt: 0, t0: 0, diag: null };
+function setConn(c) {
+  CONN = c;
+  const b = $('#bConn');
+  b.textContent = c && c.kind === 'bt' ? '切断' : '受信機に接続';
+  b.classList.toggle('sub', !!(c && c.kind === 'bt'));
+  b.disabled = !!(c && c.kind === 'demo');
+  $('#rcvState').textContent = !c ? '未接続' : c.kind === 'demo' ? 'デモ受信中（模擬データ）' : c.kind === 'tcp' ? 'Drogger GPSと接続中' : '受信機と接続中';
+  updateStatus();
+}
+function renderRcv() { $('#setupDet').open = !CONN && !L.gga; }
+async function startBT() {
+  if (!('serial' in navigator)) { toast('このChromeは受信機との直接接続に対応していません。AndroidのChromeを最新版（138以降）に更新してください'); return false; }
+  try {
+    const port = await navigator.serial.requestPort({ allowedBluetoothServiceClassIds: ['00001101-0000-1000-8000-00805f9b34fb'] });
+    await port.open({ baudRate: 115200, bufferSize: 65536 });
+    try { await port.setSignals({ dataTerminalReady: true, requestToSend: true }); } catch (e) {}
+    Object.assign(BT, { port, keep: true, bytes: 0, bin: 0, lines: 0, gga: 0, bad: 0, last: '', hex: '', lastAt: 0, t0: Date.now() });
+    clearInterval(BT.diag); BT.diag = setInterval(updDiag, 1000); $('#btDiag').hidden = false; updDiag();
+    BT.reader = port.readable.getReader();
+    const dec = new TextDecoder('latin1');
+    (async () => {
+      try {
+        while (BT.keep) {
+          const { value, done } = await BT.reader.read();
+          if (done) break; if (!value || !value.length) continue;
+          BT.bytes += value.length; BT.lastAt = Date.now();
+          for (const v of value) if (v > 126 || (v < 32 && v !== 10 && v !== 13 && v !== 9)) BT.bin++;
+          if (BT.hex.length < 96) BT.hex += Array.from(value.slice(0, 32), v => v.toString(16).padStart(2, '0')).join(' ') + ' ';
+          feedText(dec.decode(value, { stream: true }));
+        }
+      } catch (e) { if (BT.keep) { toast('受信機との接続が切れました。もう一度「受信機に接続」を押してください'); stopBT(); } }
+      finally { try { BT.reader.releaseLock(); } catch (e) {} }
+    })();
+    return true;
+  } catch (e) {
+    if (e.name !== 'NotFoundError') toast('接続できませんでした：' + e.message + '（Drogger GPSアプリが接続中だとつながりません）');
+    return false;
+  }
+}
+async function stopBT() {
+  BT.keep = false; clearInterval(BT.diag); $('#btDiag').hidden = true;
+  try { await BT.reader?.cancel(); } catch (e) {}
+  try { await BT.port?.close(); } catch (e) {}
+  BT.port = null;
+  if (CONN && CONN.kind === 'bt') setConn(null);
+}
+function updDiag() {
+  const el = $('#btDiag'), sec = (Date.now() - BT.t0) / 1000, age = BT.lastAt ? (Date.now() - BT.lastAt) / 1000 : null;
+  let msg, warn = true;
+  if (!BT.bytes) msg = sec < 5 ? '受信機からのデータを待っています' : 'Bluetoothはつながりましたが、受信機からデータが届いていません。受信機の電源とNMEA出力の設定を確認してください。';
+  else if (age > 3) msg = `データが${age.toFixed(0)}秒途絶えています。Bluetoothの届く範囲か確認してください。`;
+  else if (!BT.lines && BT.bin > BT.bytes * 0.2) msg = 'データは届いていますが、NMEAではないバイナリ形式（UBXなど）です。Drogger GPSアプリで受信機のNMEA出力を有効にしてください。';
+  else if (!BT.gga) msg = sec < 5 ? 'データ受信中' : 'NMEAは届いていますが位置（GGA）がありません。受信機のGGA出力を有効にしてください。';
+  else { msg = '受信機から位置データを受信しています。'; warn = false; }
+  if (sec < 5 && !BT.bytes) warn = false;
+  el.innerHTML = `<b style="color:var(--${warn ? 'float' : 'fix'})">${esc(msg)}</b><br>受信 ${BT.bytes.toLocaleString()} バイト ／ NMEA ${BT.lines.toLocaleString()} 行 ／ 位置 ${BT.gga.toLocaleString()} 回 ／ 破損 ${BT.bad}<br><span style="word-break:break-all">${esc(BT.last || (BT.hex ? '先頭データ：' + BT.hex.trim() : '—'))}</span>`;
+}
+$('#bConn').onclick = async () => {
+  if (CONN && CONN.kind === 'bt') { await stopBT(); return; }
+  L.lastTime = '';
+  if (await startBT()) { setConn({ kind: 'bt' }); renderRcv(); }
+};
+window.addEventListener('pagehide', () => { if (BT.port) stopBT(); });
+// Androidアプリ版（WebView）から呼ばれる場合の受け口
+window.__nmea = txt => { if (CONN && CONN.kind === 'demo') return; feedText(txt); };
+window.__bridge = state => { if (!(CONN && CONN.kind === 'demo') && !(CONN && CONN.kind === 'bt')) setConn(state === 'connected' ? { kind: 'tcp' } : null); };
+
+/* ---------- QRコード ---------- */
+$('#bQr').onclick = () => {
+  const url = location.href.split('#')[0];
+  $('#qrBox').hidden = false; $('#qrUrl').textContent = url;
+  const draw = () => { $('#qr').innerHTML = ''; new QRCode($('#qr'), { text: url, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M }); };
+  if (window.QRCode) return draw();
+  const s = document.createElement('script');
+  s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+  s.onload = draw; s.onerror = () => { $('#qr').textContent = 'QRコードを作れませんでした（インターネット接続を確認してください）'; };
+  document.head.appendChild(s);
+};
+
+/* ---------- デモ受信 ---------- */
+function cs(s) { let c = 0; for (let i = 0; i < s.length; i++) c ^= s.charCodeAt(i); return '$' + s + '*' + c.toString(16).toUpperCase().padStart(2, '0'); }
+function fmtDM(v, lat) { const h = lat ? (v >= 0 ? 'N' : 'S') : (v >= 0 ? 'E' : 'W'); v = Math.abs(v); const d = Math.floor(v); const m = (v - d) * 60; return (lat ? pad2(d) : String(d).padStart(3, '0')) + m.toFixed(7).padStart(10, '0') + ',' + h; }
+const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+let simIv = null;
+$('#bSim').onclick = () => {
+  if (simIv) return;
+  if (CONN && CONN.kind === 'bt') { toast('受信機と接続中はデモを開始できません'); return; }
+  const z = D.set.zone;
+  const base = GEO.toXY(35.6812, 139.7671, z);
+  const sep = 39.2;
+  const st = { X: base.X, Y: base.Y, Hm: 12.3, t0: Date.now(), cX: 0, cY: 0 };
+  const tick = () => {
+    const el = (Date.now() - st.t0) / 1000;
+    const fix = el > 5;
+    const tg = curTab === 'stake' ? currentTarget() : null;
+    if (tg) {
+      const tx = tg.X - D.set.corr.dX, ty = tg.Y - D.set.corr.dY; // 補正前座標系で目標へ向かう
+      const d = Math.hypot(tx - st.X, ty - st.Y);
+      if (d > 300) { st.X = tx - 9; st.Y = ty - 7; }
+      else if (d > 0.012) { const step = Math.min(0.8, d * 0.28); st.X += (tx - st.X) / d * step; st.Y += (ty - st.Y) / d * step; }
+      if (tg.H != null) { const N = geoidN(GEO.toLL(st.X, st.Y, z).lat, GEO.toLL(st.X, st.Y, z).lon) || 0; st.Hm = tg.H - D.set.corr.dH + (+D.set.ant || 0) + 0.08 + (D.set.hType === 'ellip' ? -sep : N - sep); }
+    }
+    const nh = fix ? 0.008 : 0.12, nv = fix ? 0.015 : 0.25;
+    const X = st.X + gauss() * nh, Y = st.Y + gauss() * nh, Hm = st.Hm + gauss() * nv;
+    const ll = GEO.toLL(X, Y, z);
+    const now = new Date(); const t = pad2(now.getUTCHours()) + pad2(now.getUTCMinutes()) + pad2(now.getUTCSeconds()) + '.00';
+    const sats = 24 + Math.floor(Math.random() * 4);
+    const dt = pad2(now.getUTCDate()) + pad2(now.getUTCMonth() + 1) + String(now.getUTCFullYear()).slice(2);
+    const lines = [
+      cs(`GNGGA,${t},${fmtDM(ll.lat, true)},${fmtDM(ll.lon, false)},${fix ? 4 : 5},${sats},0.6,${Hm.toFixed(3)},M,${sep.toFixed(3)},M,${(2 + Math.random() * 3).toFixed(1)},0000`),
+      cs(`GNGSA,A,3,,,,,,,,,,,,,1.1,0.6,0.9,1`),
+      cs(`GNGST,${t},0.012,,,,${(nh * (0.9 + Math.random() * 0.3)).toFixed(3)},${(nh * (0.9 + Math.random() * 0.3)).toFixed(3)},${(nv * (0.9 + Math.random() * 0.3)).toFixed(3)}`),
+      cs(`GNRMC,${t},A,${fmtDM(ll.lat, true)},${fmtDM(ll.lon, false)},0.30,45.0,${dt},,,R`)
+    ];
+    feedText(lines.join('\r\n') + '\r\n');
+  };
+  simIv = setInterval(tick, 1000); tick();
+  setConn({ kind: 'demo' });
+  $('#bSim').hidden = true; $('#bSimStop').hidden = false;
+  toast('デモ受信を開始しました');
+};
+$('#bSimStop').onclick = () => {
+  clearInterval(simIv); simIv = null; L.lastTime = ''; L.gga = null; L.ring = [];
+  setConn(null);
+  $('#bSim').hidden = false; $('#bSimStop').hidden = true;
+};
+
+function vibrate(ms) { if (!D.set.vib) return; try { if (BR && BR.vibrate) BR.vibrate(ms); else if (navigator.vibrate) navigator.vibrate(ms); } catch (e) {} }
+
+/* ---------- タブ ---------- */
+let curTab = 'conn';
+$$('nav.tabs button').forEach(b => b.onclick = () => showTab(b.dataset.t));
+function showTab(t) {
+  curTab = t;
+  $$('nav.tabs button').forEach(b => b.setAttribute('aria-selected', b.dataset.t === t ? 'true' : 'false'));
+  $$('section.tab').forEach(s => s.classList.toggle('on', s.id === 't-' + t));
+  if (t === 'meas') { renderMeas(); updateLive(); }
+  if (t === 'stake') { renderStake(); requestAnimationFrame(drawStake); }
+  if (t === 'data') renderData();
+  if (t === 'set') renderSet();
+  updateWake();
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 現場セレクト ---------- */
+function fillSites(sel) {
+  ensureSite();
+  sel.innerHTML = D.sites.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  sel.value = D.cur;
+}
+['#mSite', '#sSite', '#dSite'].forEach(id => $(id).addEventListener('change', e => {
+  D.cur = e.target.value; D.stake = null; save();
+  if (id === '#mSite') renderMeas(); if (id === '#sSite') renderStake(); if (id === '#dSite') renderData();
+}));
+
+/* ---------- 観測 ---------- */
+let MEAS = null, MRESULT = null;
+function nextPlanned(s, after) {
+  const pl = s.points.filter(p => p.status === 'planned');
+  if (!pl.length) return null;
+  if (after) { const i = s.points.findIndex(p => p.no === after); const nx = s.points.slice(i + 1).find(p => p.status === 'planned'); if (nx) return nx.no; }
+  return pl[0].no;
+}
+function renderMeas() {
+  const s = ensureSite();
+  fillSites($('#mSite'));
+  $('#dlPlanned').innerHTML = s.points.filter(p => p.status === 'planned').map(p => `<option value="${esc(p.no)}">`).join('');
+  if (!$('#mNo').value) $('#mNo').value = nextPlanned(s) || '';
+  $('#mN').value = D.set.epochs; $('#mAnt').value = D.set.ant; $('#mFixOnly').checked = D.set.fixOnly;
+  const left = s.points.filter(p => p.status === 'planned').length;
+  $('#mNext').textContent = left ? `未観測の点が ${left} 点あります。` : '事前入力した点はすべて観測済みです。点番号は自由に入力できます。';
+  const ms = s.points.filter(p => p.status === 'measured').slice().reverse();
+  $('#mTbl').innerHTML = `<thead><tr><th class="l">点番号</th><th>X</th><th>Y</th><th>H</th><th>σ水平</th><th>採用</th><th class="l">観測日時</th></tr></thead><tbody>` +
+    (ms.length ? ms.map(p => `<tr><td class="l">${esc(p.no)}</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${cm(Math.hypot(p.sdX, p.sdY))}</td><td>${p.n}</td><td class="l">${tstr(p.t1)}</td></tr>`).join('')
+      : `<tr><td class="l" colspan="7">まだ観測した点はありません。点番号を確認して「観測開始」を押してください。</td></tr>`) + '</tbody>';
+}
+$('#mN').onchange = e => { D.set.epochs = Math.max(1, Math.min(600, Math.round(+e.target.value || 10))); e.target.value = D.set.epochs; save(); };
+$('#mAnt').onchange = e => { D.set.ant = +e.target.value || 0; save(); };
+$('#mFixOnly').onchange = e => { D.set.fixOnly = e.target.checked; save(); };
+
+$('#mStart').onclick = () => {
+  const s = ensureSite();
+  const no = $('#mNo').value.trim();
+  if (!no) { toast('点番号を入力してください'); $('#mNo').focus(); return; }
+  if (!L.gga || Date.now() - L.lastAt > 3000) { toast('位置データを受信していません。受信タブで受信機に接続してください'); return; }
+  if (D.set.hType !== 'ellip' && L.N == null && !confirm('JPGEO2024が未読込（または範囲外）のため標高が記録されません。このまま観測しますか？')) return;
+  const dup = s.points.find(p => p.no === no && p.status === 'measured');
+  if (dup && !confirm(`「${no}」は観測済みです。上書きしますか？`)) return;
+  MEAS = { site: s.id, no, N: D.set.epochs, eps: [], rej: 0, t0: Date.now(), fixOnly: D.set.fixOnly, ant: +D.set.ant || 0, corr: { ...D.set.corr }, zone: D.set.zone, hType: D.set.hType, hModel: D.set.hType === 'ellip' ? '楕円体高' : (geoidName() || '') };
+  MRESULT = null;
+  $('#mDone').hidden = true; $('#mRun').hidden = false; $('#mStart').disabled = true;
+  $('#mRunT').textContent = `「${no}」を観測中`;
+  updateMeasRun(); updateWake();
+};
+$('#mCancel').onclick = () => { MEAS = null; $('#mRun').hidden = true; $('#mStart').disabled = false; updateWake(); toast('観測を中止しました'); };
+function measEpoch(ep) {
+  if (ep.q === 0) return;
+  if (MEAS.fixOnly && ep.q !== 4) { MEAS.rej++; updateMeasRun(); return; }
+  MEAS.eps.push(ep);
+  updateMeasRun();
+  if (MEAS.eps.length >= MEAS.N) finishMeas();
+}
+function summarize(eps) {
+  const X = eps.map(e => e.X), Y = eps.map(e => e.Y), H = eps.filter(e => e.H != null).map(e => e.H);
+  const gh = eps.filter(e => e.gH != null).map(e => e.gH), gv = eps.filter(e => e.gV != null).map(e => e.gV);
+  return {
+    X: STAT.mean(X), Y: STAT.mean(Y), H: H.length ? STAT.mean(H) : null,
+    rX: STAT.mean(eps.map(e => e.rX)), rY: STAT.mean(eps.map(e => e.rY)), rH: H.length ? STAT.mean(eps.filter(e => e.rH != null).map(e => e.rH)) : null,
+    lat: STAT.mean(eps.map(e => e.lat)), lon: STAT.mean(eps.map(e => e.lon)),
+    alt: STAT.mean(eps.map(e => e.alt)), sep: eps[0].sep,
+    eh: eps.some(e => e.eh != null) ? STAT.mean(eps.filter(e => e.eh != null).map(e => e.eh)) : null,
+    N: eps.some(e => e.N != null) ? STAT.mean(eps.filter(e => e.N != null).map(e => e.N)) : null,
+    sdX: STAT.sd(X), sdY: STAT.sd(Y), sdH: H.length > 1 ? STAT.sd(H) : null,
+    gH: gh.length ? STAT.mean(gh) : null, gV: gv.length ? STAT.mean(gv) : null,
+    sats: Math.round(STAT.mean(eps.map(e => e.sats || 0))), hdop: STAT.mean(eps.map(e => e.hdop || 0)),
+    ageMax: Math.max(...eps.map(e => e.age || 0)), fixN: eps.filter(e => e.q === 4).length
+  };
+}
+function updateMeasRun() {
+  if (!MEAS) return;
+  const n = MEAS.eps.length;
+  $('#mProg').style.width = (n / MEAS.N * 100) + '%';
+  $('#mRunC').textContent = `${n} ／ ${MEAS.N} エポック` + (MEAS.rej ? `（FIX以外 ${MEAS.rej} を除外）` : '');
+  if (n) {
+    const r = summarize(MEAS.eps);
+    $('#mRunD').innerHTML = `<dt>X</dt><dd>${f3(r.X)}</dd><dt>Y</dt><dd>${f3(r.Y)}</dd><dt>H</dt><dd>${f3(r.H)}</dd><dt>ばらつき</dt><dd>水平 ${cm(Math.hypot(r.sdX, r.sdY))} ／ 高さ ${cm(r.sdH)}</dd>`;
+  } else $('#mRunD').innerHTML = `<dt>状態</dt><dd>${MEAS.fixOnly ? 'FIX解を待っています' : '受信を待っています'}</dd>`;
+}
+function finishMeas() {
+  const r = summarize(MEAS.eps);
+  MRESULT = { ...r, no: MEAS.no, site: MEAS.site, n: MEAS.eps.length, rej: MEAS.rej, t0: MEAS.t0, t1: Date.now(), ant: MEAS.ant, corr: MEAS.corr, zone: MEAS.zone, hType: MEAS.hType, hModel: MEAS.hModel, fixRatio: r.fixN / MEAS.eps.length };
+  MEAS = null; updateWake();
+  $('#mRun').hidden = true; $('#mStart').disabled = false; $('#mDone').hidden = false;
+  vibrate(300);
+  const R = MRESULT;
+  $('#mDoneD').innerHTML = `<dt>点番号</dt><dd>${esc(R.no)}</dd><dt>X</dt><dd>${f3(R.X)}</dd><dt>Y</dt><dd>${f3(R.Y)}</dd><dt>${R.hType === 'ellip' ? '楕円体高' : '標高'}</dt><dd>${f3(R.H)}</dd><dt>楕円体高・ジオイド高</dt><dd>${f3(R.eh)} ／ ${R.N != null ? R.N.toFixed(4) : '—'}</dd>
+    <dt>標準偏差</dt><dd>X ${cm(R.sdX)} ／ Y ${cm(R.sdY)} ／ H ${cm(R.sdH)}</dd><dt>受信機σ平均</dt><dd>水平 ${cm(R.gH)} ／ 高さ ${cm(R.gV)}</dd>
+    <dt>エポック</dt><dd>採用 ${R.n}${R.rej ? ` ／ 除外 ${R.rej}` : ''}（FIX率 ${(R.fixRatio * 100).toFixed(0)}%）</dd><dt>衛星数・HDOP</dt><dd>${R.sats} ／ ${R.hdop.toFixed(1)}</dd>`;
+  $('#mNote').value = '';
+  $('#mSave').focus();
+}
+$('#mSave').onclick = () => {
+  if (!MRESULT) return;
+  const s = D.sites.find(x => x.id === MRESULT.site) || ensureSite();
+  const rec = { ...MRESULT, status: 'measured', note: $('#mNote').value.trim() };
+  delete rec.site;
+  const ex = s.points.find(p => p.no === rec.no);
+  if (ex) Object.assign(ex, rec); else s.points.push({ id: uid(), ...rec });
+  save();
+  toast(`「${rec.no}」を保存しました`);
+  $('#mDone').hidden = true;
+  $('#mNo').value = nextPlanned(s, rec.no) || '';
+  MRESULT = null;
+  renderMeas();
+};
+$('#mRetry').onclick = () => { $('#mDone').hidden = true; MRESULT = null; $('#mStart').click(); };
+
+/* ---------- 逆打ち ---------- */
+function targetList(s) {
+  const t = s.targets.map(x => ({ key: 't:' + x.id, label: x.name, X: x.X, Y: x.Y, H: x.H, src: '読込' }));
+  const p = s.points.filter(x => x.status === 'measured').map(x => ({ key: 'p:' + x.id, label: x.no, X: x.X, Y: x.Y, H: x.H, src: '観測' }));
+  return t.concat(p);
+}
+function currentTarget() {
+  const s = site(); if (!s || !D.stake) return null;
+  return targetList(s).find(t => t.key === D.stake) || null;
+}
+function renderStake() {
+  const s = ensureSite();
+  fillSites($('#sSite'));
+  const list = targetList(s);
+  if (!list.find(t => t.key === D.stake)) D.stake = list.length ? list[0].key : null;
+  const tg = s.targets.length, pm = list.length - tg;
+  $('#sTarget').innerHTML = list.length ? (
+    (tg ? `<optgroup label="読み込んだ目標点">${list.filter(t => t.src === '読込').map(t => `<option value="${t.key}">${esc(t.label)}</option>`).join('')}</optgroup>` : '') +
+    (pm ? `<optgroup label="観測済みの点">${list.filter(t => t.src === '観測').map(t => `<option value="${t.key}">${esc(t.label)}</option>`).join('')}</optgroup>` : '')
+  ) : '<option value="">目標点がありません（CSVを読み込んでください）</option>';
+  $('#sTarget').value = D.stake || '';
+  $$('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === D.set.orient ? 'true' : 'false'));
+  renderStakeTbl();
+}
+$('#sTarget').onchange = e => { D.stake = e.target.value || null; save(); okBuzzed = false; drawStake(); };
+function stepTarget(d) {
+  const s = site(); if (!s) return; const list = targetList(s); if (!list.length) return;
+  let i = list.findIndex(t => t.key === D.stake); i = (i + d + list.length) % list.length;
+  D.stake = list[i].key; $('#sTarget').value = D.stake; save(); okBuzzed = false; drawStake();
+}
+$('#sPrev').onclick = () => stepTarget(-1);
+$('#sNext').onclick = () => stepTarget(1);
+$$('.seg button').forEach(b => b.onclick = async () => {
+  const o = b.dataset.o;
+  if (o === 'compass') { const ok = await startCompass(); if (!ok) { toast('この端末ではコンパスが使えません'); return; } }
+  D.set.orient = o; save();
+  $$('.seg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.o === o ? 'true' : 'false'));
+  drawStake();
+});
+
+let compassOn = false, compassHead = null;
+async function startCompass() {
+  if (compassOn) return true;
+  try {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      const r = await DeviceOrientationEvent.requestPermission(); if (r !== 'granted') return false;
+    }
+  } catch (e) { return false; }
+  const h = e => {
+    let hd = null;
+    if (typeof e.webkitCompassHeading === 'number') hd = e.webkitCompassHeading;
+    else if (e.absolute && e.alpha != null) hd = 360 - e.alpha;
+    if (hd == null) return;
+    const so = (screen.orientation && screen.orientation.angle) || 0;
+    compassHead = ((hd + so + (+D.set.decl || 0)) % 360 + 360) % 360;
+  };
+  if ('ondeviceorientationabsolute' in window) window.addEventListener('deviceorientationabsolute', h);
+  else window.addEventListener('deviceorientation', h);
+  compassOn = true;
+  return 'DeviceOrientationEvent' in window;
+}
+function headingRef() {
+  const o = D.set.orient;
+  if (o === 'compass') return { h: compassHead, label: compassHead == null ? 'コンパスの値を待っています' : `端末の向き ${compassHead.toFixed(0)}°（真北基準）` };
+  if (o === 'course') {
+    const r = L.rmc; const sp = r && r.speed;
+    if (r && r.course != null && sp != null && sp > 0.3) { L.heading = r.course; return { h: r.course, label: `進行方向 ${r.course.toFixed(0)}°（${sp.toFixed(1)}m/s）` }; }
+    return { h: L.heading, label: L.heading == null ? '歩き出すと進行方向が決まります' : `直前の進行方向 ${L.heading.toFixed(0)}°` };
+  }
+  return { h: 0, label: '北が上' };
+}
+
+let circleMode = false, okBuzzed = false;
+function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function drawStake() {
+  const cv = $('#cv'); if (!cv || curTab !== 'stake') return;
+  const rect = cv.getBoundingClientRect(); if (!rect.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.round(rect.width * dpr), Hh = Math.round(rect.height * dpr);
+  if (cv.width !== W || cv.height !== Hh) { cv.width = W; cv.height = Hh; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, Hh);
+  ctx.scale(dpr, dpr);
+  const w = rect.width, h = rect.height, cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 18;
+  const C = { ink: css('--ink'), muted: css('--muted'), grid: css('--grid'), rule: css('--rule'), tape: css('--tape'), fix: css('--fix'), panel: css('--panel'), float: css('--float') };
+  // 野帳の方眼
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  for (let x = (cx % 24); x < w; x += 24) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let y = (cy % 24); y < h; y += 24) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+
+  const tg = currentTarget();
+  const msg = $('#cvMsg');
+  const fresh = L.gga && Date.now() - L.lastAt < 3000 && L.X != null;
+  const hr = headingRef();
+  $('#sHead').textContent = hr.label;
+  const rot = (hr.h || 0) * Math.PI / 180;
+  // 北の表示
+  const drawNorth = () => {
+    ctx.save(); ctx.translate(w - 30, 30); ctx.rotate(-rot);
+    ctx.fillStyle = C.muted; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(7, 6); ctx.lineTo(0, 2); ctx.lineTo(-7, 6); ctx.closePath(); ctx.fill();
+    ctx.font = '700 12px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'center'; ctx.fillText('N', 0, 20);
+    ctx.restore();
+  };
+  const clearRead = () => { ['#rDist', '#rN', '#rE', '#rH', '#rB'].forEach(s => $(s).textContent = '—'); $('#rDist').className = ''; };
+  if (!tg) { msg.textContent = '目標点を選んでください'; clearRead(); drawNorth(); return; }
+  if (!fresh) { msg.textContent = '位置データを受信していません'; clearRead(); drawNorth(); return; }
+  const bd = bearingDist(L.X, L.Y, tg.X, tg.Y);
+  const cd = +D.set.circle || 1.0, tol = +D.set.tol || 0.02;
+  if (!circleMode && bd.dist <= cd) circleMode = true;
+  else if (circleMode && bd.dist > cd * 1.15) circleMode = false;
+  const notFix = L.gga.quality !== 4;
+  msg.textContent = notFix ? 'FIXしていません。位置は参考値です' : '';
+  msg.style.color = notFix ? C.float : C.ink;
+
+  // 読み取り
+  const ok = bd.dist <= tol;
+  $('#rMode').textContent = ok ? '杭位置OK' : circleMode ? '目標まで（微調整）' : '目標までの距離';
+  $('#rDist').textContent = bd.dist < 10 ? bd.dist.toFixed(3) + ' m' : bd.dist.toFixed(2) + ' m';
+  $('#rDist').className = ok ? 'ok' : '';
+  $('#rNl').textContent = bd.dN >= 0 ? '北へ' : '南へ'; $('#rN').textContent = Math.abs(bd.dN).toFixed(3) + ' m';
+  $('#rEl').textContent = bd.dE >= 0 ? '東へ' : '西へ'; $('#rE').textContent = Math.abs(bd.dE).toFixed(3) + ' m';
+  if (tg.H != null && L.H != null) { const dh = tg.H - L.H; $('#rH').textContent = (dh >= 0 ? '盛 ' : '切 ') + Math.abs(dh).toFixed(3) + ' m'; }
+  else $('#rH').textContent = '—';
+  $('#rB').textContent = dms(bd.bearing);
+
+  if (!circleMode) {
+    // 矢印表示
+    const a = bd.bearing * Math.PI / 180 - rot;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(a);
+    const s = R * 0.78;
+    ctx.fillStyle = C.tape; ctx.strokeStyle = C.panel; ctx.lineWidth = 4; ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(0, -s); ctx.lineTo(s * 0.55, -s * 0.12); ctx.lineTo(s * 0.2, -s * 0.12); ctx.lineTo(s * 0.2, s * 0.85);
+    ctx.lineTo(-s * 0.2, s * 0.85); ctx.lineTo(-s * 0.2, -s * 0.12); ctx.lineTo(-s * 0.55, -s * 0.12); ctx.closePath();
+    ctx.fill(); ctx.stroke();
+    ctx.restore();
+    okBuzzed = false;
+  } else {
+    // 円表示（目標が中心、現在位置が点）
+    const levels = [1, 0.5, 0.3, 0.2, 0.1, 0.05];
+    let range = Math.max(cd, 0.05);
+    for (const lv of levels) if (lv <= cd && bd.dist * 1.25 <= lv) range = lv;
+    const k = R / range;
+    ctx.save(); ctx.translate(cx, cy);
+    ctx.strokeStyle = C.rule; ctx.lineWidth = 1.5; ctx.fillStyle = C.muted;
+    ctx.font = '12px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'left';
+    [1, 0.5].forEach(f => { ctx.beginPath(); ctx.arc(0, 0, R * f, 0, Math.PI * 2); ctx.stroke(); const r = range * f; ctx.fillText(r >= 0.1 ? (r * 100).toFixed(0) + 'cm' : (r * 100).toFixed(1) + 'cm', R * f * 0.71 + 4, R * f * 0.71 + 14); });
+    // 許容円
+    ctx.setLineDash([6, 5]); ctx.strokeStyle = C.fix; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(0, 0, Math.max(3, tol * k), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+    // 目標十字
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(-R, 0); ctx.lineTo(R, 0); ctx.moveTo(0, -R); ctx.lineTo(0, R); ctx.globalAlpha = .25; ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(14, 0); ctx.moveTo(0, -14); ctx.lineTo(0, 14); ctx.stroke();
+    // 現在位置（目標から見た自分）: 東=+x, 北=-y を回転
+    const ex = -bd.dE, ny = -bd.dN;
+    let px = ex * k, py = -ny * k;
+    const c = Math.cos(-rot), sN = Math.sin(-rot);
+    let qx = px * c - py * sN, qy = px * sN + py * c;
+    const ql = Math.hypot(qx, qy); if (ql > R) { qx *= R / ql; qy *= R / ql; }
+    if (!ok) {
+      ctx.strokeStyle = C.tape; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.moveTo(qx, qy); ctx.lineTo(qx * 0.15, qy * 0.15); ctx.stroke();
+    }
+    ctx.fillStyle = ok ? C.fix : C.tape; ctx.strokeStyle = C.panel; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(qx, qy, ok ? 16 : 12, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.restore();
+    if (ok && !okBuzzed) { okBuzzed = true; vibrate(200); }
+    if (!ok && bd.dist > tol * 1.5) okBuzzed = false;
+  }
+  drawNorth();
+}
+window.addEventListener('resize', () => drawStake());
+
+$('#sRec').onclick = () => {
+  const s = site(); const tg = currentTarget();
+  if (!s || !tg) { toast('目標点を選んでください'); return; }
+  if (!L.gga || Date.now() - L.lastAt > 3000 || L.X == null) { toast('位置データを受信していません'); return; }
+  const q = L.gga.quality;
+  const eps = L.ring.slice(-5).filter(e => e.q === q);
+  const r = summarize(eps.length ? eps : [L.ep]);
+  const rec = { id: uid(), t: Date.now(), name: tg.label, tX: tg.X, tY: tg.Y, tH: tg.H, X: r.X, Y: r.Y, H: r.H,
+    dX: r.X - tg.X, dY: r.Y - tg.Y, dH: (r.H != null && tg.H != null) ? r.H - tg.H : null, dist: Math.hypot(r.X - tg.X, r.Y - tg.Y), q, n: eps.length || 1 };
+  s.stakes.push(rec); save();
+  toast(`「${tg.label}」を記録：ずれ ${cm(rec.dist)}`);
+  renderStakeTbl();
+};
+function renderStakeTbl() {
+  const s = site(); if (!s) return;
+  const st = s.stakes.slice().reverse();
+  $('#sTbl').innerHTML = `<thead><tr><th class="l">点名</th><th>ずれ</th><th>ΔX</th><th>ΔY</th><th>ΔH</th><th class="l">状態</th><th class="l">日時</th><th></th></tr></thead><tbody>` +
+    (st.length ? st.map(r => `<tr><td class="l">${esc(r.name)}</td><td>${cm(r.dist)}</td><td>${f3(r.dX)}</td><td>${f3(r.dY)}</td><td>${f3(r.dH)}</td><td class="l">${NMEA.q(r.q).short}</td><td class="l">${tstr(r.t)}</td><td><button class="x" data-del="${r.id}" aria-label="削除">×</button></td></tr>`).join('')
+      : `<tr><td class="l" colspan="8">杭を打ったら「杭位置を記録」を押すと、ここに残ります。</td></tr>`) + '</tbody>';
+  $$('#sTbl [data-del]').forEach(b => b.onclick = () => { if (!confirm('この記録を削除しますか？')) return; s.stakes = s.stakes.filter(x => x.id !== b.dataset.del); save(); renderStakeTbl(); });
+}
+
+/* ---------- CSV読込 ---------- */
+function parseCoords(text, fmt) {
+  const out = []; let auto = 1;
+  for (let raw of text.split(/\r?\n/)) {
+    raw = raw.replace(/^\uFEFF/, '').trim(); if (!raw) continue;
+    let f = raw.split(/\s*[,\t;]\s*|\s+/).map(x => x.replace(/^"|"$/g, '').trim());
+    let name, a, b, c;
+    if (/^A01$/i.test(f[0])) { name = f[2] || f[1]; a = f[3]; b = f[4]; c = f[5]; if (!isFinite(+a) || !isFinite(+b) || a === '' || b === '') continue; out.push({ name, X: +a, Y: +b, H: (c !== undefined && c !== '' && isFinite(+c)) ? +c : null }); continue; }
+    if (/^[A-Z]\d\d$/i.test(f[0]) || /^G00|^Z00|^D00/i.test(raw)) continue; // SIMAの他レコード
+    const isNum = v => v !== undefined && v !== '' && isFinite(+v);
+    if (isNum(f[0]) && isNum(f[1]) && (f.length === 2 || (f.length === 3 && isNum(f[2])))) { name = 'P' + auto++; [a, b, c] = f; }
+    else { name = f[0]; [a, b, c] = f.slice(1); }
+    if (!isNum(a) || !isNum(b)) continue;
+    let X, Y, H = isNum(c) ? +c : null;
+    if (fmt === 'nyxh') { X = +b; Y = +a; }
+    else if (fmt === 'nllh') { const p = GEO.toXY(+a, +b, D.set.zone); X = p.X; Y = p.Y; }
+    else { X = +a; Y = +b; }
+    out.push({ name, X, Y, H });
+  }
+  return out;
+}
+async function readFileText(file) {
+  const buf = await file.arrayBuffer();
+  let t = new TextDecoder('utf-8').decode(buf);
+  if (t.includes('\uFFFD')) { try { t = new TextDecoder('shift_jis').decode(buf); } catch (e) {} }
+  return t;
+}
+function importCoords(text) {
+  const s = ensureSite();
+  const rows = parseCoords(text, $('#iFmt').value);
+  if (!rows.length) { toast('座標を読み取れませんでした。列の並びを確認してください'); return; }
+  if ($('#iReplace').checked) s.targets = [];
+  rows.forEach(r => s.targets.push({ id: uid(), ...r }));
+  if (!D.stake || !D.stake.startsWith('t:')) D.stake = 't:' + s.targets[s.targets.length - rows.length].id;
+  save(); renderStake(); drawStake();
+  toast(`${rows.length} 点を読み込みました`);
+}
+$('#iFile').onchange = async e => { const f = e.target.files[0]; if (!f) return; importCoords(await readFileText(f)); e.target.value = ''; };
+$('#iPaste').onclick = () => { importCoords($('#iText').value); };
+
+/* ---------- データ ---------- */
+function renderData() {
+  const s = ensureSite();
+  fillSites($('#dSite'));
+  const rows = s.points;
+  $('#dTbl').innerHTML = `<thead><tr><th class="l">点番号</th><th class="l">状態</th><th>X</th><th>Y</th><th>H</th><th>σX</th><th>σY</th><th>σH</th><th>採用</th><th class="l">観測日時</th><th class="l">備考</th><th></th></tr></thead><tbody>` +
+    (rows.length ? rows.map(p => p.status === 'measured'
+      ? `<tr><td class="l">${esc(p.no)}</td><td class="l">観測済</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${cm(p.sdX)}</td><td>${cm(p.sdY)}</td><td>${cm(p.sdH)}</td><td>${p.n}</td><td class="l">${tstr(p.t1)}</td><td class="l">${esc(p.note)}</td><td><button class="x" data-del="${p.id}" aria-label="削除">×</button></td></tr>`
+      : `<tr><td class="l">${esc(p.no)}</td><td class="l muted">未観測</td><td colspan="9"></td><td><button class="x" data-del="${p.id}" aria-label="削除">×</button></td></tr>`).join('')
+      : `<tr><td class="l" colspan="12">点がありません。上で点番号を事前入力するか、観測タブで観測してください。</td></tr>`) + '</tbody>';
+  $$('#dTbl [data-del]').forEach(b => b.onclick = () => { const p = s.points.find(x => x.id === b.dataset.del); if (!confirm(`「${p.no}」を削除しますか？`)) return; s.points = s.points.filter(x => x.id !== p.id); save(); renderData(); });
+}
+$('#dAdd').onclick = () => {
+  const n = $('#dNewName').value.trim(); if (!n) { toast('現場名を入力してください'); $('#dNewName').focus(); return; }
+  const s = { id: uid(), name: n, created: Date.now(), points: [], targets: [], stakes: [] };
+  D.sites.push(s); D.cur = s.id; D.stake = null; save(); $('#dNewName').value = ''; renderData(); toast(`現場「${n}」を追加しました`);
+};
+$('#dDel').onclick = () => {
+  const s = site(); if (!s) return;
+  if (!confirm(`現場「${s.name}」と、その点・目標点・杭打ち記録をすべて削除します。よろしいですか？`)) return;
+  D.sites = D.sites.filter(x => x.id !== s.id); D.cur = D.sites[0] ? D.sites[0].id : null; D.stake = null; save(); renderData();
+};
+function addPlanned(nos) {
+  const s = ensureSite(); let add = 0;
+  nos.forEach(no => { no = no.trim(); if (!no || s.points.find(p => p.no === no)) return; s.points.push({ id: uid(), no, status: 'planned' }); add++; });
+  save(); renderData(); toast(`${add} 点を追加しました`);
+}
+$('#gGen').onclick = () => {
+  const a = Math.round(+$('#gFrom').value), b = Math.round(+$('#gTo').value), pre = $('#gPre').value;
+  if (!isFinite(a) || !isFinite(b) || b < a || b - a > 999) { toast('開始と終了の番号を確認してください'); return; }
+  const l = []; for (let i = a; i <= b; i++) l.push(pre + i); addPlanned(l);
+};
+$('#gAdd').onclick = () => { addPlanned($('#gList').value.split(/\r?\n/)); $('#gList').value = ''; };
+
+/* ---------- 出力 ---------- */
+const BOM = '\uFEFF';
+const csvq = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+const fnameSafe = s => s.replace(/[\\/:*?"<>|\s]+/g, '_');
+const stamp = () => { const d = new Date(); return `${d.getFullYear()}${pad2(d.getMonth() + 1)}${pad2(d.getDate())}_${pad2(d.getHours())}${pad2(d.getMinutes())}`; };
+function measured(s) { return s.points.filter(p => p.status === 'measured'); }
+$('#eCsv').onclick = () => {
+  const s = ensureSite(); const ps = measured(s);
+  if (!ps.length) { toast('観測済みの点がありません'); return; }
+  const head = ['現場名', '点番号', 'X', 'Y', '高さ', '高さの種類', 'ジオイド・モデル', '楕円体高', 'ジオイド高', '緯度', '経度', '系', '採用エポック', '除外エポック', 'FIX率(%)', 'σX(m)', 'σY(m)', 'σH(m)', '受信機σ水平(m)', '受信機σ高さ(m)', '衛星数', 'HDOP', 'アンテナ高(m)', '補正ΔX', '補正ΔY', '補正ΔH', '観測開始', '観測終了', '備考'];
+  const lines = [head.join(',')].concat(ps.map(p => [s.name, p.no, f3(p.X), f3(p.Y), f3(p.H), hLabel(p.hType), p.hModel || '', f3(p.eh), p.N == null ? '' : p.N.toFixed(4), p.lat.toFixed(9), p.lon.toFixed(9), p.zone, p.n, p.rej, (p.fixRatio * 100).toFixed(0),
+    p.sdX.toFixed(4), p.sdY.toFixed(4), p.sdH == null ? '' : p.sdH.toFixed(4), p.gH == null ? '' : p.gH.toFixed(4), p.gV == null ? '' : p.gV.toFixed(4), p.sats, p.hdop.toFixed(1), p.ant, p.corr.dX, p.corr.dY, p.corr.dH, tstr(p.t0), tstr(p.t1), p.note].map(csvq).join(',')));
+  download(`観測結果_${fnameSafe(s.name)}_${stamp()}.csv`, BOM + lines.join('\r\n'));
+};
+$('#eSima').onclick = () => {
+  const s = ensureSite(); const ps = measured(s);
+  if (!ps.length) { toast('観測済みの点がありません'); return; }
+  const l = [`G00,01,${s.name},`, 'Z00,座標データ,', 'A00,'];
+  ps.forEach((p, i) => l.push(`A01,${i + 1},${p.no},${f3(p.X)},${f3(p.Y)},${p.H == null ? '' : f3(p.H)},`));
+  l.push('A99,');
+  download(`${fnameSafe(s.name)}_${stamp()}.txt`, l.join('\r\n') + '\r\n');
+};
+$('#eStake').onclick = () => {
+  const s = ensureSite();
+  if (!s.stakes.length) { toast('杭打ち記録がありません'); return; }
+  const head = ['現場名', '点名', '計画X', '計画Y', '計画H', '杭X', '杭Y', '杭H', 'ΔX(杭−計画)', 'ΔY(杭−計画)', 'ΔH(杭−計画)', '水平ずれ(m)', '測位状態', '平均エポック', '日時'];
+  const lines = [head.join(',')].concat(s.stakes.map(r => [s.name, r.name, f3(r.tX), f3(r.tY), r.tH == null ? '' : f3(r.tH), f3(r.X), f3(r.Y), r.H == null ? '' : f3(r.H), f3(r.dX), f3(r.dY), r.dH == null ? '' : f3(r.dH), f3(r.dist), NMEA.q(r.q).label, r.n, tstr(r.t)].map(csvq).join(',')));
+  download(`杭打ち記録_${fnameSafe(s.name)}_${stamp()}.csv`, BOM + lines.join('\r\n'));
+};
+$('#eReport').onclick = () => {
+  const s = ensureSite(); const ps = measured(s);
+  if (!ps.length && !s.stakes.length) { toast('出力する観測データがありません'); return; }
+  const zones = [...new Set(ps.map(p => p.zone))].map(z => '第' + GEO.ROMAN[z] + '系').join('・') || '第' + GEO.ROMAN[D.set.zone] + '系';
+  const hts = [...new Set(ps.map(p => hLabel(p.hType)))].join('・') || '標高';
+  const gms = [...new Set(ps.filter(p => p.hType !== 'ellip').map(p => p.hModel || '（未読込）'))].join('、') || '—';
+  const corrs = [...new Set(ps.map(p => `ΔX ${p.corr.dX} ／ ΔY ${p.corr.dY} ／ ΔH ${p.corr.dH}`))].join('、') || 'なし';
+  const pRows = ps.map(p => `<tr><td class="l">${esc(p.no)}</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${p.N == null ? '—' : p.N.toFixed(4)}</td><td>${p.n}${p.rej ? '／' + p.rej : ''}</td><td>${(p.fixRatio * 100).toFixed(0)}%</td><td>${(p.sdX * 100).toFixed(1)}</td><td>${(p.sdY * 100).toFixed(1)}</td><td>${p.sdH == null ? '—' : (p.sdH * 100).toFixed(1)}</td><td>${p.gH == null ? '—' : (p.gH * 100).toFixed(1)}</td><td>${p.sats}</td><td>${p.hdop.toFixed(1)}</td><td class="l">${tstr(p.t0).slice(5)}<br>〜${tstr(p.t1).slice(11)}</td><td class="l">${esc(p.note)}</td></tr>`).join('');
+  const sRows = s.stakes.map(r => `<tr><td class="l">${esc(r.name)}</td><td>${f3(r.tX)}</td><td>${f3(r.tY)}</td><td>${f3(r.X)}</td><td>${f3(r.Y)}</td><td>${f3(r.dX)}</td><td>${f3(r.dY)}</td><td>${r.dH == null ? '—' : f3(r.dH)}</td><td>${(r.dist * 100).toFixed(1)}</td><td class="l">${NMEA.q(r.q).short}</td><td class="l">${tstr(r.t)}</td></tr>`).join('');
+  const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>観測報告書 ${esc(s.name)}</title>
+<style>@page{size:A4 landscape;margin:12mm}body{font-family:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",Meiryo,sans-serif;color:#15233A;margin:24px;font-variant-numeric:tabular-nums}
+h1{font-size:22px;margin:0 0 4px;border-bottom:3px solid #15233A;padding-bottom:6px}h2{font-size:16px;margin:22px 0 6px}
+.meta{display:grid;grid-template-columns:repeat(3,auto);gap:4px 28px;font-size:13px;margin:10px 0 4px}.meta b{display:inline-block;min-width:7em;color:#5A6676;font-weight:400}
+table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #9AA6B2;padding:4px 6px;text-align:right;white-space:nowrap}th{background:#EEF1F4}.l{text-align:left}
+.n{font-size:11px;color:#5A6676;margin-top:8px;line-height:1.6}</style></head><body>
+<h1>CLAS観測報告書</h1>
+<div class="meta"><div><b>現場名</b>${esc(s.name)}</div><div><b>出力日時</b>${tstr(Date.now())}</div><div><b>観測点数</b>${ps.length} 点</div>
+<div><b>座標系</b>平面直角座標系 ${zones}（GRS80）</div><div><b>高さ</b>${hts}</div><div><b>ジオイド・モデル</b>${esc(gms)}</div><div><b>測位方式</b>CLAS（NMEA受信・1秒1エポック平均）</div>
+<div style="grid-column:1/-1"><b>既知点補正</b>${esc(corrs)}</div></div>
+${ps.length ? `<h2>観測結果</h2><table><thead><tr><th class="l">点番号</th><th>X (m)</th><th>Y (m)</th><th>${esc(hts)} (m)</th><th>ジオイド高 (m)</th><th>採用／除外</th><th>FIX率</th><th>σX (cm)</th><th>σY (cm)</th><th>σH (cm)</th><th>受信機σ水平 (cm)</th><th>衛星</th><th>HDOP</th><th class="l">観測時間</th><th class="l">備考</th></tr></thead><tbody>${pRows}</tbody></table>` : ''}
+${s.stakes.length ? `<h2>杭打ち記録</h2><table><thead><tr><th class="l">点名</th><th>計画X</th><th>計画Y</th><th>杭X</th><th>杭Y</th><th>ΔX</th><th>ΔY</th><th>ΔH</th><th>水平ずれ (cm)</th><th class="l">状態</th><th class="l">日時</th></tr></thead><tbody>${sRows}</tbody></table>` : ''}
+<p class="n">σX・σY・σHは平均に用いたエポックの標準偏差、受信機σはNMEA $GSTによる推定精度の平均です。CLASの測位結果は今期座標のため、JGD2011成果と比較する場合はセミ・ダイナミック補正または既知点補正の有無を確認してください。</p>
+</body></html>`;
+  download(`観測報告書_${fnameSafe(s.name)}_${stamp()}.html`, html);
+};
+$('#eBackup').onclick = () => download(`CLAS測量_バックアップ_${stamp()}.json`, JSON.stringify(D, null, 1));
+$('#eRestoreF').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return; e.target.value = '';
+  try {
+    const d = JSON.parse(await f.text()); if (!Array.isArray(d.sites)) throw 0;
+    if (!confirm('現在のデータをバックアップの内容で置き換えます。よろしいですか？')) return;
+    D = d; D.set = Object.assign({}, DEF.set, d.set || {}); D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {}); save(); applySettingsUI(); renderData(); toast('復元しました');
+  } catch (err) { toast('バックアップファイルを読み込めませんでした'); }
+};
+
+/* ---------- 設定 ---------- */
+function renderSet() {
+  $('#zZone').innerHTML = Array.from({ length: 19 }, (_, i) => `<option value="${i + 1}">第${GEO.ROMAN[i + 1]}系</option>`).join('');
+  $('#zZone').value = D.set.zone; $('#zH').value = D.set.hType;
+  $('#kX').value = D.set.corr.dX; $('#kY').value = D.set.corr.dY; $('#kH').value = D.set.corr.dH;
+  renderGeoid();
+  $('#zCircle').value = D.set.circle; $('#zTol').value = D.set.tol; $('#zDecl').value = D.set.decl;
+  $('#zWake').checked = D.set.wake; $('#zVib').checked = D.set.vib; $('#zTheme').value = D.set.theme || '';
+  const s = ensureSite();
+  const ms = measured(s);
+  $('#kObs').innerHTML = ms.length ? ms.map(p => `<option value="${p.id}">${esc(p.no)}</option>`).join('') : '<option value="">観測済みの点がありません</option>';
+  $('#kKnown').innerHTML = s.targets.length ? s.targets.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('') : '<option value="">目標点を読み込んでください</option>';
+}
+function recomputeLive() { if (L.gga && L.gga.lat != null) Object.assign(L, computeXYH(L.gga)); L.ring = []; updateLive(); }
+$('#zZone').onchange = e => { D.set.zone = +e.target.value; save(); recomputeLive(); };
+$('#zH').onchange = e => { D.set.hType = e.target.value; save(); recomputeLive(); updateLive(); };
+['kX', 'kY', 'kH'].forEach((id, i) => $('#' + id).onchange = e => { D.set.corr[['dX', 'dY', 'dH'][i]] = +e.target.value || 0; save(); recomputeLive(); });
+$('#kCalc').onclick = () => {
+  const s = ensureSite(); const p = s.points.find(x => x.id === $('#kObs').value); const t = s.targets.find(x => x.id === $('#kKnown').value);
+  if (!p || !t) { toast('観測した点と既知座標を選んでください'); return; }
+  const dX = +(t.X - p.rX).toFixed(4), dY = +(t.Y - p.rY).toFixed(4), dH = (t.H != null && p.rH != null) ? +(t.H - p.rH).toFixed(4) : 0;
+  if (Math.hypot(dX, dY) > 5 && !confirm(`補正量が ${Math.hypot(dX, dY).toFixed(2)} m と大きくなります。点の組み合わせを確認しましたか？`)) return;
+  D.set.corr = { dX, dY, dH }; save(); recomputeLive(); renderSet(); toast('補正量を設定しました');
+};
+$('#zCircle').onchange = e => { D.set.circle = Math.max(0.2, +e.target.value || 1); save(); };
+$('#zTol').onchange = e => { D.set.tol = Math.max(0.005, +e.target.value || 0.02); save(); };
+$('#zDecl').onchange = e => { D.set.decl = +e.target.value || 0; save(); };
+$('#zWake').onchange = e => { D.set.wake = e.target.checked; save(); updateWake(); };
+$('#zVib').onchange = e => { D.set.vib = e.target.checked; save(); };
+$('#zTheme').onchange = e => { D.set.theme = e.target.value; save(); applyTheme(); };
+function applyTheme() { if (D.set.theme) document.documentElement.dataset.theme = D.set.theme; else delete document.documentElement.dataset.theme; }
+
+let wakeLock = null;
+async function updateWake() {
+  const want = D.set.wake && (curTab === 'stake' || curTab === 'meas' || !!MEAS) && document.visibilityState === 'visible';
+  if (BR && BR.keepScreenOn) { try { BR.keepScreenOn(!!want); } catch (e) {} return; }
+  try {
+    if (want && !wakeLock && navigator.wakeLock) { wakeLock = await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release', () => { wakeLock = null; }); }
+    else if (!want && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', updateWake);
+
+function applySettingsUI() { applyTheme(); }
+applySettingsUI();
+ensureSite();
+renderRcv();
+updateStatus();
+loadGeoids();
+if (BR && BR.ready) { try { BR.ready(); } catch (e) {} }
+})();
+
+</script>
+</body>
+</html>
