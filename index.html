@@ -169,11 +169,13 @@ body.geo .nmeaOnly{display:none!important}
       <button class="btn" id="bConn">Drogger GPSから受信</button>
     </div>
     <p class="note">Drogger GPS アプリで受信機と接続しFIXさせたまま、このボタンを押してください。このアプリは受信機にもDrogger GPSにも何も送らず、Drogger GPSが測位した位置を読み取るだけです。</p>
+    <p class="note" id="geoStat" hidden></p>
     <div id="rcvWarn"></div>
     <details style="margin-top:8px" id="setupDet">
       <summary>初めて使うときの設定</summary>
       <ol class="steps">
         <li>Android の［設定］→［システム］→［開発者向けオプション］→［仮の現在地情報アプリを選択］で <b>Drogger GPS</b> を選びます（Drogger GPS を使い始めたときに設定済みなら不要です）。</li>
+        <li>Android の［設定］→［位置情報］→［位置情報サービス］で、<b>Google 位置情報の精度</b>、<b>Wi-Fi のスキャン</b>、<b>Bluetooth のスキャン</b>を OFF にします。ON のままだと Wi-Fi や基地局による数十m単位の粗い位置が混ざり、座標が大きく飛びます。</li>
         <li>Drogger GPS で［Start］を押し、CLAS RTK で FIX させます。Drogger GPS は動かしたままにします。</li>
         <li>このアプリで「Drogger GPSから受信」を押し、位置情報の利用を「許可」します。</li>
         <li>受信タブの高さが Drogger GPS 画面の標高と同じか、一度確認してください。</li>
@@ -399,6 +401,7 @@ body.geo .nmeaOnly{display:none!important}
     <div class="row">
       <label class="f">円表示に切り替える距離（m）<input type="number" id="zCircle" step="0.1" min="0.2"></label>
       <label class="f">FIXとみなす精度（m、Drogger GPSから受信時）<input type="number" id="zFixAcc" step="0.005" min="0.005"></label>
+      <label class="f">これより粗い位置は捨てる（m、Drogger GPSから受信時）<input type="number" id="zRejAcc" step="0.1" min="0.05"></label>
       <label class="f">杭位置OKの許容値（m）<input type="number" id="zTol" step="0.005" min="0.005"></label>
       <label class="f">磁気偏角（度、西偏は−）<input type="number" id="zDecl" step="0.1"></label>
     </div>
@@ -675,7 +678,7 @@ const KEY = 'clas-survey-v1';
 const DEF = {
   sites: [], cur: null,
   set: { zone: 9, hType: 'jp2024', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
-    circle: 1.0, tol: 0.02, fixAcc: 0.05, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
+    circle: 1.0, tol: 0.02, fixAcc: 0.05, rejAcc: 1.0, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
   stake: null
 };
 let D;
@@ -1025,16 +1028,32 @@ window.__nmea = txt => { if (CONN && CONN.kind === 'demo') return; feedText(txt)
 window.__bridge = state => { if (!(CONN && CONN.kind === 'demo') && !(CONN && CONN.kind === 'bt')) setConn(state === 'connected' ? { kind: 'tcp' } : null); };
 
 /* ---------- Drogger GPSから受信（Drogger GPSが置き換えた端末の位置情報を読むだけ） ---------- */
-const GEOW = { id: null, last: 0 };
+const GEOW = { id: null, last: 0, good: null, pend: null, ts: 0, nOk: 0, nAcc: 0, nJump: 0, nOld: 0 };
 function startGeo() {
   if (!('geolocation' in navigator)) { toast('この端末では位置情報を使えません'); return false; }
+  Object.assign(GEOW, { good: null, pend: null, ts: 0, nOk: 0, nAcc: 0, nJump: 0, nOld: 0 });
   GEOW.id = navigator.geolocation.watchPosition(p => {
     if (!CONN || CONN.kind !== 'geo') return;
     const c = p.coords, d = new Date(p.timestamp);
+    // ① 古い位置・同じ位置の再送は捨てる
+    if (p.timestamp <= GEOW.ts) { GEOW.nOld++; updGeoStat(); return; }
+    // ② Drogger GPS以外（Wi-Fi・基地局）の粗い位置は捨てる
+    if (c.accuracy == null || c.accuracy > (+D.set.rejAcc || 1.0)) { GEOW.nAcc++; updGeoStat(); return; }
+    // ③ 1秒で数mも飛んだ位置は、次の位置が同じ場所を示すまで保留する
+    if (GEOW.good) {
+      const k = 111320, dn = (c.latitude - GEOW.good.lat) * k, de = (c.longitude - GEOW.good.lon) * k * Math.cos(c.latitude * Math.PI / 180);
+      const dt = Math.max(1, (p.timestamp - GEOW.good.ts) / 1000);
+      if (Math.hypot(dn, de) > Math.max(2, dt * 3)) {
+        const q = GEOW.pend;
+        const near = q && Math.hypot((c.latitude - q.lat) * k, (c.longitude - q.lon) * k * Math.cos(c.latitude * Math.PI / 180)) < 0.5;
+        if (!near) { GEOW.pend = { lat: c.latitude, lon: c.longitude }; GEOW.nJump++; updGeoStat(); return; }
+      }
+    }
+    GEOW.pend = null; GEOW.ts = p.timestamp; GEOW.good = { lat: c.latitude, lon: c.longitude, ts: p.timestamp }; GEOW.nOk++;
     const fixAcc = +D.set.fixAcc || 0.05;
     const acc = c.accuracy;
     const q = acc == null ? 1 : acc <= fixAcc ? 4 : acc <= 0.5 ? 5 : 1;
-    GEOW.last = Date.now();
+    GEOW.last = Date.now(); updGeoStat();
     onGGA({ type: 'GGA', est: true, time: pad2(d.getUTCHours()) + pad2(d.getUTCMinutes()) + pad2(d.getUTCSeconds()) + '.00',
       lat: c.latitude, lon: c.longitude, quality: q, sats: null, hdop: null, alt: c.altitude, sep: null, age: null,
       acc, vacc: c.altitudeAccuracy, speed: c.speed, course: c.heading });
@@ -1044,6 +1063,13 @@ function startGeo() {
     if (e.code === 1) stopGeo();
   }, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
   return true;
+}
+function updGeoStat() {
+  const el = $('#geoStat'); if (!el) return;
+  const ex = GEOW.nAcc + GEOW.nJump;
+  el.hidden = !(CONN && CONN.kind === 'geo');
+  el.innerHTML = `採用 ${GEOW.nOk} 回 ／ 除外：精度不良 ${GEOW.nAcc} 回・位置の飛び ${GEOW.nJump} 回・再送 ${GEOW.nOld} 回` +
+    (GEOW.nAcc > GEOW.nOk * 0.2 && GEOW.nAcc > 5 ? '<br><b style="color:var(--float)">Drogger GPS以外の粗い位置が多く届いています。Androidの「Google位置情報の精度」をOFFにしてください。</b>' : '');
 }
 function stopGeo() { if (GEOW.id != null) navigator.geolocation.clearWatch(GEOW.id); GEOW.id = null; if (CONN && CONN.kind === 'geo') setConn(null); }
 $('#bConn').onclick = () => {
@@ -1593,7 +1619,7 @@ function renderSet() {
   $('#zZone').value = D.set.zone; $('#zH').value = D.set.hType;
   $('#kX').value = D.set.corr.dX; $('#kY').value = D.set.corr.dY; $('#kH').value = D.set.corr.dH;
   renderGeoid();
-  $('#zCircle').value = D.set.circle; $('#zFixAcc').value = D.set.fixAcc; $('#zTol').value = D.set.tol; $('#zDecl').value = D.set.decl;
+  $('#zCircle').value = D.set.circle; $('#zFixAcc').value = D.set.fixAcc; $('#zRejAcc').value = D.set.rejAcc; $('#zTol').value = D.set.tol; $('#zDecl').value = D.set.decl;
   $('#zWake').checked = D.set.wake; $('#zVib').checked = D.set.vib; $('#zTheme').value = D.set.theme || '';
   const s = ensureSite();
   const ms = measured(s);
@@ -1611,6 +1637,7 @@ $('#kCalc').onclick = () => {
   if (Math.hypot(dX, dY) > 5 && !confirm(`補正量が ${Math.hypot(dX, dY).toFixed(2)} m と大きくなります。点の組み合わせを確認しましたか？`)) return;
   D.set.corr = { dX, dY, dH }; save(); recomputeLive(); renderSet(); toast('補正量を設定しました');
 };
+$('#zRejAcc').onchange = e => { D.set.rejAcc = Math.max(0.05, +e.target.value || 1); save(); };
 $('#zFixAcc').onchange = e => { D.set.fixAcc = Math.max(0.005, +e.target.value || 0.05); save(); };
 $('#zCircle').onchange = e => { D.set.circle = Math.max(0.2, +e.target.value || 1); save(); };
 $('#zTol').onchange = e => { D.set.tol = Math.max(0.005, +e.target.value || 0.02); save(); };
