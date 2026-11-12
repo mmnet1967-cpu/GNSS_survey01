@@ -124,7 +124,7 @@ canvas#cv{display:block;width:100%;aspect-ratio:1/1;max-height:62vh;touch-action
 .read .cell b{font-size:22px}
 .ok{color:var(--fix)}
 .seg{display:inline-flex;border:1.5px solid var(--ink);border-radius:8px;overflow:hidden}
-.seg button{background:transparent;border:0;padding:8px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+.seg button{background:transparent;border:0;padding:8px 10px;cursor:pointer;font-size:14px;color:var(--ink)}
 .seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper);font-weight:700}
 details summary{cursor:pointer;font-weight:700;padding:4px 0}
 .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:8px;font-size:14px;z-index:40;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
@@ -138,6 +138,13 @@ details summary{cursor:pointer;font-weight:700;padding:4px 0}
 .live-f{margin:6px 0 0;font-size:13px;color:var(--muted)}
 .live.stale b{color:var(--muted)}
 body.geo .nmeaOnly{display:none!important}
+.selbar{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:0 0 8px}
+.selbar .selDel:not(:disabled){color:var(--single);border-color:var(--single)}
+td input[type=checkbox],th input[type=checkbox]{width:20px;height:20px;accent-color:var(--tape);vertical-align:middle}
+#dTbl tbody tr,#tTbl tbody tr{cursor:pointer}
+.askbg{position:fixed;inset:0;z-index:50;background:rgba(10,16,26,.55);display:flex;align-items:center;justify-content:center;padding:20px}
+.askbox{background:var(--panel);color:var(--ink);border-radius:12px;padding:18px;max-width:420px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.askbox p{margin:0 0 16px;white-space:pre-wrap;line-height:1.6}
 @media (prefers-reduced-motion: reduce){*{transition:none!important}}
 @media (min-width:700px){ .read{grid-template-columns:repeat(4,1fr)} }
 </style>
@@ -266,6 +273,15 @@ body.geo .nmeaOnly{display:none!important}
     <label class="f" style="flex:1 1 140px">現場名<select id="sSite"></select></label>
     <label class="f" style="flex:2 1 220px">目標点<select id="sTarget"></select></label>
   </div>
+  <div class="row" style="margin-top:10px;justify-content:space-between">
+    <div class="seg" role="group" aria-label="表示の切り替え">
+      <button data-o="north">北が上</button><button data-o="compass">ノーズアップ</button><button data-o="course">進行方向</button><button data-o="map">地図</button>
+    </div>
+    <span class="muted" id="sHead"></span>
+  </div>
+  <div class="row" id="mapTypeRow" hidden style="margin-top:8px">
+    <label class="f" style="flex:0 1 220px">地図の種類<select id="mapType"><option value="std">地理院地図（標準）</option><option value="pale">地理院地図（淡色）</option><option value="photo">航空写真</option></select></label>
+  </div>
   <div class="cv-wrap"><canvas id="cv" width="600" height="600" aria-label="杭方向の表示"></canvas><div class="cv-msg" id="cvMsg"></div></div>
   <div class="read">
     <div class="dist"><span class="muted" id="rMode">目標までの距離</span><b id="rDist">—</b></div>
@@ -273,12 +289,6 @@ body.geo .nmeaOnly{display:none!important}
     <div class="cell"><span id="rEl">東 ／ 西</span><b id="rE">—</b></div>
     <div class="cell"><span>切盛（計画高−現在高）</span><b id="rH">—</b></div>
     <div class="cell"><span>方向角</span><b id="rB">—</b></div>
-  </div>
-  <div class="row" style="margin-top:10px;justify-content:space-between">
-    <div class="seg" role="group" aria-label="表示の向き">
-      <button data-o="north">北が上</button><button data-o="compass">コンパス</button><button data-o="course">進行方向</button>
-    </div>
-    <span class="muted" id="sHead"></span>
   </div>
   <div class="row" style="margin-top:10px">
     <button class="btn sub" id="sPrev">前の点</button>
@@ -327,16 +337,19 @@ body.geo .nmeaOnly{display:none!important}
   <div class="card">
     <b>点番号の事前入力</b>
     <div class="row" style="margin-top:8px">
-      <label class="f">接頭辞<input type="text" id="gPre" value="No."></label>
-      <label class="f">開始<input type="number" id="gFrom" value="1"></label>
-      <label class="f">終了<input type="number" id="gTo" value="10"></label>
+      <label class="f">番号の前に付ける文字<input type="text" id="gPre" value="No." placeholder="例）T"></label>
+      <label class="f">最初の番号<input type="number" id="gFrom" value="1"></label>
+      <label class="f">最後の番号<input type="number" id="gTo" value="10"></label>
       <button class="btn sub" id="gGen" style="align-self:end">連番で追加</button>
     </div>
-    <label class="f" style="margin-top:10px">1行に1点ずつ入力<textarea id="gList" placeholder="BM1&#10;KBM-2&#10;IP.3"></textarea></label>
-    <button class="btn sub" id="gAdd" style="margin-top:6px">一覧から追加</button>
+    <p class="note" id="gPrev"></p>
   </div>
   <h3>点の一覧</h3>
+  <div class="selbar" id="dBar"><span class="muted">選択 <b class="selN">0</b> 点</span><button class="btn sub selDel" disabled>選択した点を削除</button></div>
   <div class="tblw"><table id="dTbl"></table></div>
+  <h3>目標点（読み込んだ座標）</h3>
+  <div class="selbar" id="tBar"><span class="muted">選択 <b class="selN">0</b> 点</span><button class="btn sub selDel" disabled>選択した点を削除</button></div>
+  <div class="tblw"><table id="tTbl"></table></div>
   <h3>出力</h3>
   <div class="card">
     <div class="row">
@@ -678,7 +691,7 @@ const KEY = 'clas-survey-v1';
 const DEF = {
   sites: [], cur: null,
   set: { zone: 9, hType: 'jp2024', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
-    circle: 1.0, tol: 0.02, fixAcc: 0.05, rejAcc: 1.0, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
+    circle: 1.0, mapType: 'std', tol: 0.02, fixAcc: 0.05, rejAcc: 1.0, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
   stake: null
 };
 let D;
@@ -692,6 +705,22 @@ function ensureSite() {
   if (!D.sites.length) { const s = { id: uid(), name: '現場1', created: Date.now(), points: [], targets: [], stakes: [] }; D.sites.push(s); D.cur = s.id; save(); }
   if (!site()) D.cur = D.sites[0].id;
   return site();
+}
+
+/* ---------- 確認ダイアログ（ブラウザ標準のconfirmは表示環境によって出ないため自前で表示） ---------- */
+function ask(msg, okLabel = 'OK') {
+  return new Promise(res => {
+    const bg = document.createElement('div');
+    bg.className = 'askbg';
+    bg.innerHTML = `<div class="askbox" role="alertdialog" aria-modal="true"><p></p><div class="row" style="justify-content:flex-end"><button class="btn sub" data-a="0">キャンセル</button><button class="btn" data-a="1"></button></div></div>`;
+    bg.querySelector('p').textContent = msg;
+    bg.querySelector('[data-a="1"]').textContent = okLabel;
+    const done = v => { bg.remove(); res(v); };
+    bg.querySelectorAll('button').forEach(b => b.onclick = () => done(b.dataset.a === '1'));
+    bg.onclick = e => { if (e.target === bg) done(false); };
+    document.body.appendChild(bg);
+    bg.querySelector('[data-a="1"]').focus();
+  });
 }
 
 /* ---------- 通知 ---------- */
@@ -794,8 +823,8 @@ async function importGeoid(file, slot) {
   await new Promise(r => setTimeout(r, 50));
   try {
     const g = GEOID.parseISG(await file.text());
-    if (slot === 'href' && !/href/i.test(g.name + file.name) && !confirm('基準面補正のファイルではないようです。このまま読み込みますか？')) return;
-    if (slot === 'main' && /href/i.test(g.name) && !/jpgeo/i.test(g.name) && !confirm('基準面補正（Hrefconv2024）のファイルのようです。JPGEO2024の欄に読み込みますか？')) return;
+    if (slot === 'href' && !/href/i.test(g.name + file.name) && !await ask('基準面補正のファイルではないようです。このまま読み込みますか？')) return;
+    if (slot === 'main' && /href/i.test(g.name) && !/jpgeo/i.test(g.name) && !await ask('基準面補正（Hrefconv2024）のファイルのようです。JPGEO2024の欄に読み込みますか？')) return;
     GM[slot] = g;
     try { await idbPut(slot, g); } catch (e) { toast('端末への保存に失敗しました。次回起動時に再度読み込みが必要です'); }
     recomputeLive(); renderGeoid();
@@ -1162,7 +1191,7 @@ function fillSites(sel) {
   sel.value = D.cur;
 }
 ['#mSite', '#sSite', '#dSite'].forEach(id => $(id).addEventListener('change', e => {
-  D.cur = e.target.value; D.stake = null; save();
+  D.cur = e.target.value; D.stake = null; SEL.p.clear(); SEL.t.clear(); save();
   if (id === '#mSite') renderMeas(); if (id === '#sSite') renderStake(); if (id === '#dSite') renderData();
 }));
 
@@ -1203,14 +1232,14 @@ $('#mN').onchange = e => { D.set.epochs = Math.max(1, Math.min(600, Math.round(+
 $('#mAnt').onchange = e => { D.set.ant = +e.target.value || 0; save(); };
 $('#mFixOnly').onchange = e => { D.set.fixOnly = e.target.checked; save(); };
 
-$('#mStart').onclick = () => {
+$('#mStart').onclick = async () => {
   const s = ensureSite();
   const no = $('#mNo').value.trim();
   if (!no) { toast('点番号を入力してください'); $('#mNo').focus(); return; }
   if (!L.gga || Date.now() - L.lastAt > 3000) { toast('位置データを受信していません。受信タブで受信を開始してください'); return; }
-  if (D.set.hType === 'jp2024' && L.N == null && !confirm('JPGEO2024が未読込（または範囲外）のため標高が記録されません。このまま観測しますか？')) return;
+  if (D.set.hType === 'jp2024' && L.N == null && !await ask('JPGEO2024が未読込（または範囲外）のため標高が記録されません。このまま観測しますか？')) return;
   const dup = s.points.find(p => p.no === no && p.status === 'measured');
-  if (dup && !confirm(`「${no}」は観測済みです。上書きしますか？`)) return;
+  if (dup && !await ask(`「${no}」は観測済みです。上書きしますか？`)) return;
   MEAS = { site: s.id, no, N: D.set.epochs, eps: [], rej: 0, t0: Date.now(), fixOnly: D.set.fixOnly, ant: +D.set.ant || 0, corr: { ...D.set.corr }, zone: D.set.zone, hType: D.set.hType, hModel: D.set.hType === 'ellip' ? '楕円体高' : D.set.hType === 'raw' ? '受信した高さ' : (geoidName() || ''), src: CONN && CONN.kind === 'geo' ? 'Drogger GPS経由' : 'NMEA直接' };
   MRESULT = null;
   $('#mDone').hidden = true; $('#mRun').hidden = false; $('#mStart').disabled = true;
@@ -1302,6 +1331,8 @@ function renderStake() {
   ) : '<option value="">目標点がありません（CSVを読み込んでください）</option>';
   $('#sTarget').value = D.stake || '';
   $$('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === D.set.orient ? 'true' : 'false'));
+  $('#mapTypeRow').hidden = D.set.orient !== 'map'; $('#mapType').value = D.set.mapType || 'std';
+  if (D.set.orient === 'compass' || D.set.orient === 'map') startCompass().catch(() => {});
   renderStakeTbl();
 }
 $('#sTarget').onchange = e => { D.stake = e.target.value || null; save(); okBuzzed = false; drawStake(); };
@@ -1311,10 +1342,13 @@ function stepTarget(d) {
   D.stake = list[i].key; $('#sTarget').value = D.stake; save(); okBuzzed = false; drawStake();
 }
 $('#sPrev').onclick = () => stepTarget(-1);
+$('#mapType').onchange = e => { D.set.mapType = e.target.value; save(); drawStake(); };
 $('#sNext').onclick = () => stepTarget(1);
 $$('.seg button').forEach(b => b.onclick = async () => {
   const o = b.dataset.o;
   if (o === 'compass') { const ok = await startCompass(); if (!ok) { toast('この端末ではコンパスが使えません'); return; } }
+  if (o === 'map') startCompass().catch(() => {});
+  $('#mapTypeRow').hidden = o !== 'map';
   D.set.orient = o; save();
   $$('.seg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.o === o ? 'true' : 'false'));
   drawStake();
@@ -1349,7 +1383,111 @@ function headingRef() {
     if (r && r.course != null && sp != null && sp > 0.3) { L.heading = r.course; return { h: r.course, label: `進行方向 ${r.course.toFixed(0)}°（${sp.toFixed(1)}m/s）` }; }
     return { h: L.heading, label: L.heading == null ? '歩き出すと進行方向が決まります' : `直前の進行方向 ${L.heading.toFixed(0)}°` };
   }
+  if (o === 'map') {
+    const h = mapHeading();
+    return { h: 0, label: h == null ? '地図は北が上。歩き出すか端末を動かすと自分の向きが出ます' : `地図は北が上 ／ 自分の向き ${h.toFixed(0)}°` };
+  }
   return { h: 0, label: '北が上' };
+}
+// 地図上の自分の矢印の向き：コンパスが使えればコンパス、なければ進行方向
+function mapHeading() {
+  if (compassHead != null) return compassHead;
+  const r = L.rmc;
+  if (r && r.course != null && r.speed != null && r.speed > 0.3) L.heading = r.course;
+  return L.heading;
+}
+
+/* ---------- 地理院地図 ---------- */
+const MAPT = {
+  std: { url: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', max: 18 },
+  pale: { url: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', max: 18 },
+  photo: { url: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', max: 18 }
+};
+const tileCache = new Map();
+let tileRedraw = false;
+function getTile(type, z, x, y) {
+  const k = `${type}/${z}/${x}/${y}`;
+  let t = tileCache.get(k);
+  if (!t) {
+    t = new Image();
+    t.onload = () => { if (!tileRedraw) { tileRedraw = true; requestAnimationFrame(() => { tileRedraw = false; drawStake(); }); } };
+    t.onerror = () => { t.bad = true; };
+    t.src = MAPT[type].url.replace('{z}', z).replace('{x}', x).replace('{y}', y);
+    tileCache.set(k, t);
+    if (tileCache.size > 300) tileCache.delete(tileCache.keys().next().value);
+  }
+  return t;
+}
+const merc = (lat, lon, z) => {
+  const n = 256 * Math.pow(2, z), s = Math.sin(lat * Math.PI / 180);
+  return { x: (lon + 180) / 360 * n, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n };
+};
+function drawMap(ctx, w, h, tg, bd, C, ok, tol) {
+  const me = { lat: L.gga.lat, lon: L.gga.lon };
+  const tll = GEO.toLL(tg.X - D.set.corr.dX, tg.Y - D.set.corr.dY, D.set.zone); // 受信座標と同じ系で目標を置く
+  const lat0 = (me.lat + tll.lat) / 2, lon0 = (me.lon + tll.lon) / 2;
+  const R = Math.min(w, h) / 2 - 24;
+  const range = Math.max(bd.dist / 2 * 1.35, 1.5);          // 自分と目標が両方入る範囲(m)
+  const mpp = range / R;                                     // 1ピクセルあたりのm
+  const cosl = Math.cos(lat0 * Math.PI / 180);
+  const type = MAPT[D.set.mapType] ? D.set.mapType : 'std';
+  let z = Math.floor(Math.log2(156543.034 * cosl / mpp));
+  z = Math.max(5, Math.min(MAPT[type].max, z));
+  const scale = (156543.034 * cosl / Math.pow(2, z)) / mpp; // タイル1pxを画面何pxで描くか
+  const c = merc(lat0, lon0, z);
+  const toScr = (lat, lon) => { const p = merc(lat, lon, z); return { x: w / 2 + (p.x - c.x) * scale, y: h / 2 + (p.y - c.y) * scale }; };
+  // タイル
+  ctx.fillStyle = C.grid; ctx.fillRect(0, 0, w, h);
+  const ts = 256 * scale;
+  const x0 = Math.floor((c.x - w / 2 / scale) / 256), x1 = Math.floor((c.x + w / 2 / scale) / 256);
+  const y0 = Math.floor((c.y - h / 2 / scale) / 256), y1 = Math.floor((c.y + h / 2 / scale) / 256);
+  ctx.imageSmoothingEnabled = scale < 2;
+  for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
+    const t = getTile(type, z, tx, ty);
+    if (t.complete && !t.bad && t.naturalWidth) ctx.drawImage(t, w / 2 + (tx * 256 - c.x) * scale, h / 2 + (ty * 256 - c.y) * scale, ts + 0.5, ts + 0.5);
+  }
+  ctx.imageSmoothingEnabled = true;
+  const P = toScr(me.lat, me.lon), T = toScr(tll.lat, tll.lon);
+  // 自分→目標の線
+  ctx.save();
+  ctx.setLineDash([8, 6]); ctx.lineWidth = 3; ctx.strokeStyle = '#fff';
+  ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(T.x, T.y); ctx.stroke();
+  ctx.strokeStyle = C.tape; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+  // 許容範囲の円
+  const tr = tol / mpp;
+  if (tr > 3) { ctx.strokeStyle = C.fix; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(T.x, T.y, tr, 0, Math.PI * 2); ctx.stroke(); }
+  // 目標点（杭マーク）
+  ctx.lineWidth = 4; ctx.strokeStyle = '#fff';
+  ctx.beginPath(); ctx.arc(T.x, T.y, 11, 0, Math.PI * 2); ctx.moveTo(T.x - 18, T.y); ctx.lineTo(T.x + 18, T.y); ctx.moveTo(T.x, T.y - 18); ctx.lineTo(T.x, T.y + 18); ctx.stroke();
+  ctx.lineWidth = 2.5; ctx.strokeStyle = ok ? C.fix : C.tape;
+  ctx.beginPath(); ctx.arc(T.x, T.y, 11, 0, Math.PI * 2); ctx.moveTo(T.x - 18, T.y); ctx.lineTo(T.x + 18, T.y); ctx.moveTo(T.x, T.y - 18); ctx.lineTo(T.x, T.y + 18); ctx.stroke();
+  // 目標名
+  ctx.font = '700 13px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'left'; ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#15233A';
+  ctx.strokeText(tg.label, T.x + 16, T.y - 14); ctx.fillText(tg.label, T.x + 16, T.y - 14);
+  // 自分の位置（向きがあれば矢印、なければ丸）
+  const hd = mapHeading();
+  ctx.translate(P.x, P.y);
+  ctx.fillStyle = '#1F6FEB'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+  if (hd == null) { ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+  else {
+    ctx.rotate(hd * Math.PI / 180);
+    ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(13, 14); ctx.lineTo(0, 7); ctx.lineTo(-13, 14); ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  ctx.restore();
+  // 縮尺
+  const nice = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+  const len = nice.find(v => v / mpp >= 60) || 1000, px = len / mpp;
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(10, h - 34, px + 16, 24);
+  ctx.strokeStyle = '#15233A'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(18, h - 18); ctx.lineTo(18 + px, h - 18); ctx.moveTo(18, h - 23); ctx.lineTo(18, h - 13); ctx.moveTo(18 + px, h - 23); ctx.lineTo(18 + px, h - 13); ctx.stroke();
+  ctx.fillStyle = '#15233A'; ctx.font = '11px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(len < 1 ? (len * 100) + 'cm' : len + 'm', 18 + px / 2, h - 22);
+  // 出典（地理院タイルの利用条件）
+  ctx.textAlign = 'right'; ctx.font = '11px "BIZ UDPGothic",sans-serif';
+  const at = '出典：地理院タイル';
+  const tw = ctx.measureText(at).width;
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(w - tw - 14, h - 22, tw + 10, 18);
+  ctx.fillStyle = '#15233A'; ctx.fillText(at, w - 9, h - 9);
+  if (scale > 3) { ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(8, 8, 150, 20); ctx.fillStyle = '#15233A'; ctx.fillText('地図は拡大表示中（目安）', 13, 22); }
 }
 
 let circleMode = false, okBuzzed = false;
@@ -1405,6 +1543,13 @@ function drawStake() {
   else $('#rH').textContent = '—';
   $('#rB').textContent = dms(bd.bearing);
 
+  if (D.set.orient === 'map') {
+    drawMap(ctx, w, h, tg, bd, C, ok, tol);
+    if (ok && !okBuzzed) { okBuzzed = true; vibrate(200); }
+    if (!ok && bd.dist > tol * 1.5) okBuzzed = false;
+    drawNorth();
+    return;
+  }
   if (!circleMode) {
     // 矢印表示
     const a = bd.bearing * Math.PI / 180 - rot;
@@ -1472,7 +1617,7 @@ function renderStakeTbl() {
   $('#sTbl').innerHTML = `<thead><tr><th class="l">点名</th><th>ずれ</th><th>ΔX</th><th>ΔY</th><th>ΔH</th><th class="l">状態</th><th class="l">日時</th><th></th></tr></thead><tbody>` +
     (st.length ? st.map(r => `<tr><td class="l">${esc(r.name)}</td><td>${cm(r.dist)}</td><td>${f3(r.dX)}</td><td>${f3(r.dY)}</td><td>${f3(r.dH)}</td><td class="l">${NMEA.q(r.q).short}</td><td class="l">${tstr(r.t)}</td><td><button class="x" data-del="${r.id}" aria-label="削除">×</button></td></tr>`).join('')
       : `<tr><td class="l" colspan="8">杭を打ったら「杭位置を記録」を押すと、ここに残ります。</td></tr>`) + '</tbody>';
-  $$('#sTbl [data-del]').forEach(b => b.onclick = () => { if (!confirm('この記録を削除しますか？')) return; s.stakes = s.stakes.filter(x => x.id !== b.dataset.del); save(); renderStakeTbl(); });
+  $$('#sTbl [data-del]').forEach(b => b.onclick = async () => { if (!await ask('この記録を削除しますか？')) return; s.stakes = s.stakes.filter(x => x.id !== b.dataset.del); save(); renderStakeTbl(); });
 }
 
 /* ---------- CSV読込 ---------- */
@@ -1516,25 +1661,57 @@ $('#iFile').onchange = async e => { const f = e.target.files[0]; if (!f) return;
 $('#iPaste').onclick = () => { importCoords($('#iText').value); };
 
 /* ---------- データ ---------- */
+// 選択して削除できる表
+const SEL = { p: new Set(), t: new Set() };
+function selTable(kind, tblId, barId, items, head, rowFn, empty) {
+  const set = SEL[kind];
+  for (const id of [...set]) if (!items.some(x => x.id === id)) set.delete(id);
+  const all = items.length > 0 && items.every(x => set.has(x.id));
+  $(tblId).innerHTML = `<thead><tr><th class="l"><input type="checkbox" class="selAll" aria-label="すべて選択" ${all ? 'checked' : ''} ${items.length ? '' : 'disabled'}></th>${head}</tr></thead><tbody>` +
+    (items.length ? items.map(x => `<tr class="${set.has(x.id) ? 'sel' : ''}"><td class="l"><input type="checkbox" class="selOne" data-id="${x.id}" ${set.has(x.id) ? 'checked' : ''} aria-label="選択"></td>${rowFn(x)}</tr>`).join('')
+      : `<tr><td class="l" colspan="20">${empty}</td></tr>`) + '</tbody>';
+  const bar = $(barId);
+  bar.querySelector('.selN').textContent = set.size;
+  bar.querySelector('.selDel').disabled = !set.size;
+  $(tblId).querySelector('.selAll').onchange = e => { items.forEach(x => e.target.checked ? set.add(x.id) : set.delete(x.id)); renderData(); };
+  $$(tblId + ' .selOne').forEach(c => c.onchange = () => { c.checked ? set.add(c.dataset.id) : set.delete(c.dataset.id); renderData(); });
+  // 行のどこを押しても選択を切り替えられるようにする
+  $$(tblId + ' tbody tr').forEach(tr => tr.onclick = ev => { if (ev.target.tagName === 'INPUT') return; const c = tr.querySelector('.selOne'); if (c) { c.checked = !c.checked; c.onchange(); } });
+}
 function renderData() {
   const s = ensureSite();
   fillSites($('#dSite'));
-  const rows = s.points;
-  $('#dTbl').innerHTML = `<thead><tr><th class="l">点番号</th><th class="l">状態</th><th>X</th><th>Y</th><th>H</th><th>σX</th><th>σY</th><th>σH</th><th>採用</th><th class="l">観測日時</th><th class="l">備考</th><th></th></tr></thead><tbody>` +
-    (rows.length ? rows.map(p => p.status === 'measured'
-      ? `<tr><td class="l">${esc(p.no)}</td><td class="l">観測済</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${cm(p.sdX)}</td><td>${cm(p.sdY)}</td><td>${cm(p.sdH)}</td><td>${p.n}</td><td class="l">${tstr(p.t1)}</td><td class="l">${esc(p.note)}</td><td><button class="x" data-del="${p.id}" aria-label="削除">×</button></td></tr>`
-      : `<tr><td class="l">${esc(p.no)}</td><td class="l muted">未観測</td><td colspan="9"></td><td><button class="x" data-del="${p.id}" aria-label="削除">×</button></td></tr>`).join('')
-      : `<tr><td class="l" colspan="12">点がありません。上で点番号を事前入力するか、観測タブで観測してください。</td></tr>`) + '</tbody>';
-  $$('#dTbl [data-del]').forEach(b => b.onclick = () => { const p = s.points.find(x => x.id === b.dataset.del); if (!confirm(`「${p.no}」を削除しますか？`)) return; s.points = s.points.filter(x => x.id !== p.id); save(); renderData(); });
+  selTable('p', '#dTbl', '#dBar', s.points,
+    `<th class="l">点番号</th><th class="l">状態</th><th>X</th><th>Y</th><th>H</th><th>σX</th><th>σY</th><th>σH</th><th>採用</th><th class="l">観測日時</th><th class="l">備考</th>`,
+    p => p.status === 'measured'
+      ? `<td class="l">${esc(p.no)}</td><td class="l">観測済</td><td>${f3(p.X)}</td><td>${f3(p.Y)}</td><td>${f3(p.H)}</td><td>${cm(p.sdX)}</td><td>${cm(p.sdY)}</td><td>${cm(p.sdH)}</td><td>${p.n}</td><td class="l">${tstr(p.t1)}</td><td class="l">${esc(p.note)}</td>`
+      : `<td class="l">${esc(p.no)}</td><td class="l muted">未観測</td><td colspan="9"></td>`,
+    '点がありません。上で点番号を事前入力するか、観測タブで観測してください。');
+  selTable('t', '#tTbl', '#tBar', s.targets,
+    `<th class="l">点名</th><th>X</th><th>Y</th><th>H</th>`,
+    t => `<td class="l">${esc(t.name)}</td><td>${f3(t.X)}</td><td>${f3(t.Y)}</td><td>${t.H == null ? '—' : f3(t.H)}</td>`,
+    '読み込んだ目標点はありません。逆打ちタブでCSVを読み込めます。');
 }
+async function delSelected(kind) {
+  const s = ensureSite(), set = SEL[kind];
+  if (!set.size) return;
+  const list = kind === 'p' ? s.points : s.targets;
+  const names = list.filter(x => set.has(x.id)).map(x => kind === 'p' ? x.no : x.name);
+  if (!await ask(`${names.length} 点を削除します。元に戻せません。よろしいですか？\n${names.slice(0, 10).join('、')}${names.length > 10 ? ' ほか' : ''}`)) return;
+  if (kind === 'p') { s.points = s.points.filter(x => !set.has(x.id)); if (D.stake && D.stake.startsWith('p:') && set.has(D.stake.slice(2))) D.stake = null; }
+  else { s.targets = s.targets.filter(x => !set.has(x.id)); if (D.stake && D.stake.startsWith('t:') && set.has(D.stake.slice(2))) D.stake = null; }
+  set.clear(); save(); renderData(); toast(`${names.length} 点を削除しました`);
+}
+$('#dBar .selDel').onclick = () => delSelected('p');
+$('#tBar .selDel').onclick = () => delSelected('t');
 $('#dAdd').onclick = () => {
   const n = $('#dNewName').value.trim(); if (!n) { toast('現場名を入力してください'); $('#dNewName').focus(); return; }
   const s = { id: uid(), name: n, created: Date.now(), points: [], targets: [], stakes: [] };
   D.sites.push(s); D.cur = s.id; D.stake = null; save(); $('#dNewName').value = ''; renderData(); toast(`現場「${n}」を追加しました`);
 };
-$('#dDel').onclick = () => {
+$('#dDel').onclick = async () => {
   const s = site(); if (!s) return;
-  if (!confirm(`現場「${s.name}」と、その点・目標点・杭打ち記録をすべて削除します。よろしいですか？`)) return;
+  if (!await ask(`現場「${s.name}」と、その点・目標点・杭打ち記録をすべて削除します。よろしいですか？`)) return;
   D.sites = D.sites.filter(x => x.id !== s.id); D.cur = D.sites[0] ? D.sites[0].id : null; D.stake = null; save(); renderData();
 };
 function addPlanned(nos) {
@@ -1547,7 +1724,12 @@ $('#gGen').onclick = () => {
   if (!isFinite(a) || !isFinite(b) || b < a || b - a > 999) { toast('開始と終了の番号を確認してください'); return; }
   const l = []; for (let i = a; i <= b; i++) l.push(pre + i); addPlanned(l);
 };
-$('#gAdd').onclick = () => { addPlanned($('#gList').value.split(/\r?\n/)); $('#gList').value = ''; };
+function genPreview() {
+  const a = Math.round(+$('#gFrom').value), b = Math.round(+$('#gTo').value), pre = $('#gPre').value;
+  $('#gPrev').textContent = isFinite(a) && isFinite(b) && b >= a ? `登録される点番号：${pre}${a}、${pre}${a + 1}、…、${pre}${b}（${b - a + 1}点）` : '最初と最後の番号を入力してください';
+}
+['#gPre', '#gFrom', '#gTo'].forEach(id => $(id).addEventListener('input', genPreview));
+genPreview();
 
 /* ---------- 出力 ---------- */
 const BOM = '\uFEFF';
@@ -1608,7 +1790,7 @@ $('#eRestoreF').onchange = async e => {
   const f = e.target.files[0]; if (!f) return; e.target.value = '';
   try {
     const d = JSON.parse(await f.text()); if (!Array.isArray(d.sites)) throw 0;
-    if (!confirm('現在のデータをバックアップの内容で置き換えます。よろしいですか？')) return;
+    if (!await ask('現在のデータをバックアップの内容で置き換えます。よろしいですか？')) return;
     D = d; D.set = Object.assign({}, DEF.set, d.set || {}); D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {}); save(); applySettingsUI(); renderData(); toast('復元しました');
   } catch (err) { toast('バックアップファイルを読み込めませんでした'); }
 };
@@ -1630,11 +1812,11 @@ function recomputeLive() { if (L.gga && L.gga.lat != null) Object.assign(L, comp
 $('#zZone').onchange = e => { D.set.zone = +e.target.value; save(); recomputeLive(); };
 $('#zH').onchange = e => { D.set.hType = e.target.value; save(); recomputeLive(); updateLive(); };
 ['kX', 'kY', 'kH'].forEach((id, i) => $('#' + id).onchange = e => { D.set.corr[['dX', 'dY', 'dH'][i]] = +e.target.value || 0; save(); recomputeLive(); });
-$('#kCalc').onclick = () => {
+$('#kCalc').onclick = async () => {
   const s = ensureSite(); const p = s.points.find(x => x.id === $('#kObs').value); const t = s.targets.find(x => x.id === $('#kKnown').value);
   if (!p || !t) { toast('観測した点と既知座標を選んでください'); return; }
   const dX = +(t.X - p.rX).toFixed(4), dY = +(t.Y - p.rY).toFixed(4), dH = (t.H != null && p.rH != null) ? +(t.H - p.rH).toFixed(4) : 0;
-  if (Math.hypot(dX, dY) > 5 && !confirm(`補正量が ${Math.hypot(dX, dY).toFixed(2)} m と大きくなります。点の組み合わせを確認しましたか？`)) return;
+  if (Math.hypot(dX, dY) > 5 && !await ask(`補正量が ${Math.hypot(dX, dY).toFixed(2)} m と大きくなります。点の組み合わせを確認しましたか？`)) return;
   D.set.corr = { dX, dY, dH }; save(); recomputeLive(); renderSet(); toast('補正量を設定しました');
 };
 $('#zRejAcc').onchange = e => { D.set.rejAcc = Math.max(0.05, +e.target.value || 1); save(); };
