@@ -275,12 +275,9 @@ td input[type=checkbox],th input[type=checkbox]{width:20px;height:20px;accent-co
   </div>
   <div class="row" style="margin-top:10px;justify-content:space-between">
     <div class="seg" role="group" aria-label="表示の切り替え">
-      <button data-o="north">北が上</button><button data-o="compass">ノーズアップ</button><button data-o="course">進行方向</button><button data-o="map">地図</button>
+      <button data-o="compass">ノーズアップ</button><button data-o="course">進行方向</button><button data-o="map">位置関係</button>
     </div>
     <span class="muted" id="sHead"></span>
-  </div>
-  <div class="row" id="mapTypeRow" hidden style="margin-top:8px">
-    <label class="f" style="flex:0 1 220px">地図の種類<select id="mapType"><option value="std">地理院地図（標準）</option><option value="pale">地理院地図（淡色）</option><option value="photo">航空写真</option></select></label>
   </div>
   <div class="cv-wrap"><canvas id="cv" width="600" height="600" aria-label="杭方向の表示"></canvas><div class="cv-msg" id="cvMsg"></div></div>
   <div class="read">
@@ -691,13 +688,14 @@ const KEY = 'clas-survey-v1';
 const DEF = {
   sites: [], cur: null,
   set: { zone: 9, hType: 'jp2024', epochs: 10, fixOnly: true, ant: 0, corr: { dX: 0, dY: 0, dH: 0 },
-    circle: 1.0, mapType: 'std', tol: 0.02, fixAcc: 0.05, rejAcc: 1.0, decl: -8, wake: true, vib: true, orient: 'north', theme: '' },
+    circle: 1.0, mapType: 'std', tol: 0.02, fixAcc: 0.05, rejAcc: 1.0, decl: -8, wake: true, vib: true, orient: 'compass', theme: '' },
   stake: null
 };
 let D;
 try { D = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { D = null; }
 if (!D || !Array.isArray(D.sites)) D = JSON.parse(JSON.stringify(DEF));
-D.set = Object.assign({}, DEF.set, D.set || {}); if (!['jp2024', 'raw', 'ellip'].includes(D.set.hType)) D.set.hType = 'jp2024'; D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {});
+D.set = Object.assign({}, DEF.set, D.set || {}); if (!['jp2024', 'raw', 'ellip'].includes(D.set.hType)) D.set.hType = 'jp2024';
+if (!['compass', 'course', 'map'].includes(D.set.orient)) D.set.orient = 'compass'; D.set.corr = Object.assign({ dX: 0, dY: 0, dH: 0 }, D.set.corr || {});
 let saveTimer = null;
 function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(D)); } catch (e) {} }, 150); }
 function site() { return D.sites.find(s => s.id === D.cur) || null; }
@@ -1331,7 +1329,6 @@ function renderStake() {
   ) : '<option value="">目標点がありません（CSVを読み込んでください）</option>';
   $('#sTarget').value = D.stake || '';
   $$('.seg button').forEach(b => b.setAttribute('aria-pressed', b.dataset.o === D.set.orient ? 'true' : 'false'));
-  $('#mapTypeRow').hidden = D.set.orient !== 'map'; $('#mapType').value = D.set.mapType || 'std';
   if (D.set.orient === 'compass' || D.set.orient === 'map') startCompass().catch(() => {});
   renderStakeTbl();
 }
@@ -1342,13 +1339,11 @@ function stepTarget(d) {
   D.stake = list[i].key; $('#sTarget').value = D.stake; save(); okBuzzed = false; drawStake();
 }
 $('#sPrev').onclick = () => stepTarget(-1);
-$('#mapType').onchange = e => { D.set.mapType = e.target.value; save(); drawStake(); };
 $('#sNext').onclick = () => stepTarget(1);
 $$('.seg button').forEach(b => b.onclick = async () => {
   const o = b.dataset.o;
-  if (o === 'compass') { const ok = await startCompass(); if (!ok) { toast('この端末ではコンパスが使えません'); return; } }
+  if (o === 'compass') { const ok = await startCompass(); if (!ok) toast('この端末ではコンパスが使えないため、北を上にして表示します'); }
   if (o === 'map') startCompass().catch(() => {});
-  $('#mapTypeRow').hidden = o !== 'map';
   D.set.orient = o; save();
   $$('.seg button').forEach(x => x.setAttribute('aria-pressed', x.dataset.o === o ? 'true' : 'false'));
   drawStake();
@@ -1377,7 +1372,7 @@ async function startCompass() {
 }
 function headingRef() {
   const o = D.set.orient;
-  if (o === 'compass') return { h: compassHead, label: compassHead == null ? 'コンパスの値を待っています' : `端末の向き ${compassHead.toFixed(0)}°（真北基準）` };
+  if (o === 'compass') return { h: compassHead, label: compassHead == null ? 'コンパスの値を待っています（それまでは北が上）' : `端末の向き ${compassHead.toFixed(0)}°（真北基準）` };
   if (o === 'course') {
     const r = L.rmc; const sp = r && r.speed;
     if (r && r.course != null && sp != null && sp > 0.3) { L.heading = r.course; return { h: r.course, label: `進行方向 ${r.course.toFixed(0)}°（${sp.toFixed(1)}m/s）` }; }
@@ -1385,7 +1380,7 @@ function headingRef() {
   }
   if (o === 'map') {
     const h = mapHeading();
-    return { h: 0, label: h == null ? '地図は北が上。歩き出すか端末を動かすと自分の向きが出ます' : `地図は北が上 ／ 自分の向き ${h.toFixed(0)}°` };
+    return { h: 0, label: h == null ? '北が上。歩き出すか端末を動かすと自分の向きが出ます' : `北が上 ／ 自分の向き ${h.toFixed(0)}°` };
   }
   return { h: 0, label: '北が上' };
 }
@@ -1397,97 +1392,49 @@ function mapHeading() {
   return L.heading;
 }
 
-/* ---------- 地理院地図 ---------- */
-const MAPT = {
-  std: { url: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png', max: 18 },
-  pale: { url: 'https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', max: 18 },
-  photo: { url: 'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', max: 18 }
-};
-const tileCache = new Map();
-let tileRedraw = false;
-function getTile(type, z, x, y) {
-  const k = `${type}/${z}/${x}/${y}`;
-  let t = tileCache.get(k);
-  if (!t) {
-    t = new Image();
-    t.onload = () => { if (!tileRedraw) { tileRedraw = true; requestAnimationFrame(() => { tileRedraw = false; drawStake(); }); } };
-    t.onerror = () => { t.bad = true; };
-    t.src = MAPT[type].url.replace('{z}', z).replace('{x}', x).replace('{y}', y);
-    tileCache.set(k, t);
-    if (tileCache.size > 300) tileCache.delete(tileCache.keys().next().value);
-  }
-  return t;
-}
-const merc = (lat, lon, z) => {
-  const n = 256 * Math.pow(2, z), s = Math.sin(lat * Math.PI / 180);
-  return { x: (lon + 180) / 360 * n, y: (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n };
-};
+// 位置関係の表示（地図なし）：北が上、目標点と自分の位置・向きだけを描く
 function drawMap(ctx, w, h, tg, bd, C, ok, tol) {
-  const me = { lat: L.gga.lat, lon: L.gga.lon };
-  const tll = GEO.toLL(tg.X - D.set.corr.dX, tg.Y - D.set.corr.dY, D.set.zone); // 受信座標と同じ系で目標を置く
-  const lat0 = (me.lat + tll.lat) / 2, lon0 = (me.lon + tll.lon) / 2;
   const R = Math.min(w, h) / 2 - 24;
-  const range = Math.max(bd.dist / 2 * 1.35, 1.5);          // 自分と目標が両方入る範囲(m)
-  const mpp = range / R;                                     // 1ピクセルあたりのm
-  const cosl = Math.cos(lat0 * Math.PI / 180);
-  const type = MAPT[D.set.mapType] ? D.set.mapType : 'std';
-  let z = Math.floor(Math.log2(156543.034 * cosl / mpp));
-  z = Math.max(5, Math.min(MAPT[type].max, z));
-  const scale = (156543.034 * cosl / Math.pow(2, z)) / mpp; // タイル1pxを画面何pxで描くか
-  const c = merc(lat0, lon0, z);
-  const toScr = (lat, lon) => { const p = merc(lat, lon, z); return { x: w / 2 + (p.x - c.x) * scale, y: h / 2 + (p.y - c.y) * scale }; };
-  // タイル
-  ctx.fillStyle = C.grid; ctx.fillRect(0, 0, w, h);
-  const ts = 256 * scale;
-  const x0 = Math.floor((c.x - w / 2 / scale) / 256), x1 = Math.floor((c.x + w / 2 / scale) / 256);
-  const y0 = Math.floor((c.y - h / 2 / scale) / 256), y1 = Math.floor((c.y + h / 2 / scale) / 256);
-  ctx.imageSmoothingEnabled = scale < 2;
-  for (let tx = x0; tx <= x1; tx++) for (let ty = y0; ty <= y1; ty++) {
-    const t = getTile(type, z, tx, ty);
-    if (t.complete && !t.bad && t.naturalWidth) ctx.drawImage(t, w / 2 + (tx * 256 - c.x) * scale, h / 2 + (ty * 256 - c.y) * scale, ts + 0.5, ts + 0.5);
-  }
-  ctx.imageSmoothingEnabled = true;
-  const P = toScr(me.lat, me.lon), T = toScr(tll.lat, tll.lon);
-  // 自分→目標の線
+  const range = Math.max(bd.dist / 2 * 1.35, 0.3);   // 自分と目標が両方入る範囲(m)
+  const mpp = range / R;
+  const cx = w / 2, cy = h / 2;
+  // 平面直角座標で描く（中心は自分と目標の中間）
+  const mX = (L.X + tg.X) / 2, mY = (L.Y + tg.Y) / 2;
+  const scr = (X, Y) => ({ x: cx + (Y - mY) / mpp, y: cy - (X - mX) / mpp });
+  // 背景と方眼（縮尺に合わせたきりのよい間隔）
+  ctx.fillStyle = C.panel; ctx.fillRect(0, 0, w, h);
+  const nice = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
+  const g = nice.find(v => v / mpp >= 40) || 1000;
+  ctx.strokeStyle = C.grid; ctx.lineWidth = 1;
+  const gx0 = Math.floor((mY - cx * mpp) / g) * g, gy0 = Math.floor((mX - cy * mpp) / g) * g;
+  for (let Y = gx0; Y <= mY + cx * mpp; Y += g) { const x = scr(0, Y).x; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+  for (let X = gy0; X <= mX + cy * mpp; X += g) { const y = scr(X, 0).y; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+  const P = scr(L.X, L.Y), T = scr(tg.X, tg.Y);
   ctx.save();
-  ctx.setLineDash([8, 6]); ctx.lineWidth = 3; ctx.strokeStyle = '#fff';
-  ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(T.x, T.y); ctx.stroke();
-  ctx.strokeStyle = C.tape; ctx.lineWidth = 2; ctx.stroke(); ctx.setLineDash([]);
+  // 自分→目標の線
+  ctx.setLineDash([8, 6]); ctx.strokeStyle = C.tape; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(P.x, P.y); ctx.lineTo(T.x, T.y); ctx.stroke(); ctx.setLineDash([]);
   // 許容範囲の円
   const tr = tol / mpp;
   if (tr > 3) { ctx.strokeStyle = C.fix; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(T.x, T.y, tr, 0, Math.PI * 2); ctx.stroke(); }
   // 目標点（杭マーク）
-  ctx.lineWidth = 4; ctx.strokeStyle = '#fff';
-  ctx.beginPath(); ctx.arc(T.x, T.y, 11, 0, Math.PI * 2); ctx.moveTo(T.x - 18, T.y); ctx.lineTo(T.x + 18, T.y); ctx.moveTo(T.x, T.y - 18); ctx.lineTo(T.x, T.y + 18); ctx.stroke();
   ctx.lineWidth = 2.5; ctx.strokeStyle = ok ? C.fix : C.tape;
   ctx.beginPath(); ctx.arc(T.x, T.y, 11, 0, Math.PI * 2); ctx.moveTo(T.x - 18, T.y); ctx.lineTo(T.x + 18, T.y); ctx.moveTo(T.x, T.y - 18); ctx.lineTo(T.x, T.y + 18); ctx.stroke();
-  // 目標名
-  ctx.font = '700 13px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'left'; ctx.lineWidth = 4; ctx.strokeStyle = '#fff'; ctx.fillStyle = '#15233A';
-  ctx.strokeText(tg.label, T.x + 16, T.y - 14); ctx.fillText(tg.label, T.x + 16, T.y - 14);
+  ctx.font = '700 13px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'left'; ctx.fillStyle = C.ink;
+  ctx.fillText(tg.label, T.x + 16, T.y - 14);
   // 自分の位置（向きがあれば矢印、なければ丸）
   const hd = mapHeading();
   ctx.translate(P.x, P.y);
-  ctx.fillStyle = '#1F6FEB'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+  ctx.fillStyle = '#1F6FEB'; ctx.strokeStyle = C.panel; ctx.lineWidth = 3;
   if (hd == null) { ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
   else {
     ctx.rotate(hd * Math.PI / 180);
     ctx.beginPath(); ctx.moveTo(0, -20); ctx.lineTo(13, 14); ctx.lineTo(0, 7); ctx.lineTo(-13, 14); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
   ctx.restore();
-  // 縮尺
-  const nice = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000];
-  const len = nice.find(v => v / mpp >= 60) || 1000, px = len / mpp;
-  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(10, h - 34, px + 16, 24);
-  ctx.strokeStyle = '#15233A'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(18, h - 18); ctx.lineTo(18 + px, h - 18); ctx.moveTo(18, h - 23); ctx.lineTo(18, h - 13); ctx.moveTo(18 + px, h - 23); ctx.lineTo(18 + px, h - 13); ctx.stroke();
-  ctx.fillStyle = '#15233A'; ctx.font = '11px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(len < 1 ? (len * 100) + 'cm' : len + 'm', 18 + px / 2, h - 22);
-  // 出典（地理院タイルの利用条件）
-  ctx.textAlign = 'right'; ctx.font = '11px "BIZ UDPGothic",sans-serif';
-  const at = '出典：地理院タイル';
-  const tw = ctx.measureText(at).width;
-  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(w - tw - 14, h - 22, tw + 10, 18);
-  ctx.fillStyle = '#15233A'; ctx.fillText(at, w - 9, h - 9);
-  if (scale > 3) { ctx.textAlign = 'left'; ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(8, 8, 150, 20); ctx.fillStyle = '#15233A'; ctx.fillText('地図は拡大表示中（目安）', 13, 22); }
+  // 縮尺（方眼1マスの大きさ）
+  ctx.fillStyle = C.muted; ctx.font = '12px "BIZ UDPGothic",sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('方眼1マス ' + (g < 1 ? Math.round(g * 100) + 'cm' : g + 'm'), 12, h - 12);
 }
 
 let circleMode = false, okBuzzed = false;
